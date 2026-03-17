@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env
+
+# Mac
+.DS_Store
+
+# Data (IMPORTANT)
+data/dumps/*
+data/extracted/*
+data/corrupted/*
+data/reconstructed/*
+data/reports/*
+
+# Logs
+*.log
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# VSCode / IDE
+.vscode/
+.idea/
