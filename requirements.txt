@@ -1,1 +1,9 @@
-pip freeze
+numpy
+opencv-python
+Pillow
+scikit-image
+fastapi
+uvicorn
+pytest
+matplotlib
+pandas

@@ -70,3 +70,20 @@ def test_run_demo_pipeline_invalid_source(tmp_path: Path):
                 "fill_value": 0,
             },
         )
+
+
+def test_run_demo_pipeline_blind_advanced(tmp_path: Path):
+    image_path = tmp_path / "source.png"
+    Image.new("RGB", (128, 128), color="blue").save(image_path)
+
+    result = run_demo_pipeline(
+        source_image_path=image_path,
+        corruption_level=60,
+        execution_mode="blind_advanced",
+        detection_mode="advanced",
+        seed=42,
+    )
+
+    assert result["status"] == "completed"
+    assert "detection_metrics" in result
+    assert "recoverability_status" in result

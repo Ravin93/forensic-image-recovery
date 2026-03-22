@@ -2,56 +2,76 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from skimage.metrics import structural_similarity
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 from app.core.exceptions import EvaluationError
 
 
-def load_image_as_rgb_array(image_path: str | Path) -> np.ndarray:
-    path = Path(image_path)
+def load_image_as_rgb_array(image: str | Path | np.ndarray) -> np.ndarray:
+    """
+    Charge une image en tableau RGB uint8.
+    Compatible avec :
+    - str
+    - Path
+    - np.ndarray
+    """
+    if isinstance(image, np.ndarray):
+        return image
 
+    path = Path(image)
     if not path.exists():
         raise EvaluationError(f"Image introuvable : {path}")
 
     try:
-        image = Image.open(path).convert("RGB")
-    except OSError as exc:
+        return np.array(Image.open(path).convert("RGB"))
+    except Exception as exc:
         raise EvaluationError(f"Impossible de charger l'image : {path}") from exc
 
-    return np.array(image, dtype=np.uint8)
+
+def load_image_as_array(image: str | Path | np.ndarray) -> np.ndarray:
+    """
+    Alias de compatibilité interne.
+    """
+    return load_image_as_rgb_array(image)
 
 
 def ensure_same_shape(image_a: np.ndarray, image_b: np.ndarray) -> None:
     if image_a.shape != image_b.shape:
         raise EvaluationError(
-            f"Les images doivent avoir la même taille. "
-            f"Reçu: {image_a.shape} vs {image_b.shape}"
+            f"Dimensions incompatibles : {image_a.shape} vs {image_b.shape}"
         )
 
 
-def compute_psnr(image_a: np.ndarray, image_b: np.ndarray) -> float:
-    ensure_same_shape(image_a, image_b)
+def compute_psnr(
+    image_a: str | Path | np.ndarray,
+    image_b: str | Path | np.ndarray,
+) -> float:
+    arr_a = load_image_as_rgb_array(image_a)
+    arr_b = load_image_as_rgb_array(image_b)
 
-    mse = np.mean((image_a.astype(np.float32) - image_b.astype(np.float32)) ** 2)
+    ensure_same_shape(arr_a, arr_b)
 
-    if mse == 0:
-        return float("inf")
+    value = peak_signal_noise_ratio(arr_a, arr_b, data_range=255)
 
-    pixel_max = 255.0
-    return float(10.0 * np.log10((pixel_max ** 2) / mse))
+    if np.isinf(value):
+        return 100.0
+
+    return float(value)
 
 
-def compute_ssim(image_a: np.ndarray, image_b: np.ndarray) -> float:
-    ensure_same_shape(image_a, image_b)
+def compute_ssim(
+    image_a: str | Path | np.ndarray,
+    image_b: str | Path | np.ndarray,
+) -> float:
+    arr_a = load_image_as_rgb_array(image_a)
+    arr_b = load_image_as_rgb_array(image_b)
 
-    try:
-        score = structural_similarity(
-            image_a,
-            image_b,
-            channel_axis=2,
-            data_range=255,
-        )
-    except Exception as exc:
-        raise EvaluationError("Impossible de calculer le SSIM") from exc
+    ensure_same_shape(arr_a, arr_b)
 
-    return float(score)
+    value = structural_similarity(
+        arr_a,
+        arr_b,
+        channel_axis=2,
+        data_range=255,
+    )
+    return float(value)

@@ -1,43 +1,43 @@
 from pathlib import Path
-from typing import Any
 
-from app.core.logger import logger
-from app.modules.evaluation.metrics import (
-    compute_psnr,
-    compute_ssim,
-    load_image_as_rgb_array,
-)
+from app.modules.evaluation.metrics import compute_psnr, compute_ssim
 
 
 def compare_images(
     original_path: str | Path,
     corrupted_path: str | Path,
     reconstructed_path: str | Path,
-) -> dict[str, Any]:
-    original = load_image_as_rgb_array(original_path)
-    corrupted = load_image_as_rgb_array(corrupted_path)
-    reconstructed = load_image_as_rgb_array(reconstructed_path)
+) -> dict:
+    psnr_corrupted = compute_psnr(original_path, corrupted_path)
+    ssim_corrupted = compute_ssim(original_path, corrupted_path)
 
-    original_vs_corrupted = {
-        "psnr": compute_psnr(original, corrupted),
-        "ssim": compute_ssim(original, corrupted),
-    }
+    psnr_reconstructed = compute_psnr(original_path, reconstructed_path)
+    ssim_reconstructed = compute_ssim(original_path, reconstructed_path)
 
-    original_vs_reconstructed = {
-        "psnr": compute_psnr(original, reconstructed),
-        "ssim": compute_ssim(original, reconstructed),
-    }
+    psnr_gain = float(psnr_reconstructed) - float(psnr_corrupted)
+    ssim_gain = float(ssim_reconstructed) - float(ssim_corrupted)
 
     improvement = (
-        original_vs_reconstructed["psnr"] >= original_vs_corrupted["psnr"]
-        and original_vs_reconstructed["ssim"] >= original_vs_corrupted["ssim"]
+        (psnr_gain > 1.0 and ssim_gain > 0.0)
+        or
+        (psnr_gain > 0.0 and ssim_gain > 0.01)
     )
 
-    result = {
-        "original_vs_corrupted": original_vs_corrupted,
-        "original_vs_reconstructed": original_vs_reconstructed,
+    improvement_score = 0.7 * psnr_gain + 30.0 * ssim_gain
+
+    return {
+        "original_vs_corrupted": {
+            "psnr": psnr_corrupted,
+            "ssim": ssim_corrupted,
+        },
+        "original_vs_reconstructed": {
+            "psnr": psnr_reconstructed,
+            "ssim": ssim_reconstructed,
+        },
+        "gains": {
+            "psnr_gain": psnr_gain,
+            "ssim_gain": ssim_gain,
+            "improvement_score": improvement_score,
+        },
         "improvement": improvement,
     }
-
-    logger.info("Comparaison OK : %s", result)
-    return result
