@@ -35,3 +35,6 @@ def denoise_image(image_path: str | Path, method: str = "median_blur") -> dict[s
         "status": "denoised",
         "source_image": path.name,
     }
+
+def denoise(image):
+    return cv2.medianBlur(image, 5)

@@ -41,3 +41,22 @@ def classify_corruption_type(
         "confidence": conf,
         "features": features,
     }
+
+def classify_corruption(features):
+    v = features["variance"]
+    g = features["gradient"]
+    e = features["entropy"]
+
+    if v < 50:
+        return "missing", 0.8
+
+    if e > 6 and v > 100:
+        return "noise", 0.7
+
+    if g < 10:
+        return "blur", 0.7
+
+    if e < 4 and v > 50:
+        return "jpeg_block", 0.6
+
+    return "mixed", 0.5

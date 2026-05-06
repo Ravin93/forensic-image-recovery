@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.api.schemas.requests import RunPipelineRequest
-from app.services.full_pipeline_service import run_full_pipeline
+from app.core.full_pipeline_service import run_full_pipeline
 
 router = APIRouter()
 

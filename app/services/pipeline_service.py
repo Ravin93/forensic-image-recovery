@@ -121,6 +121,8 @@ def run_demo_pipeline(
         radius=radius,
         corruption_type=estimated_corruption_type,
         detection_confidence=detection_confidence,
+        original_image_path=source_image_path,
+        max_attempts=8,
     )
 
     comparison_result = compare_images(

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 import numpy as np
 from PIL import Image
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
@@ -51,6 +52,9 @@ def compute_psnr(
 
     ensure_same_shape(arr_a, arr_b)
 
+    if np.array_equal(arr_a, arr_b):
+        return 100.0
+
     value = peak_signal_noise_ratio(arr_a, arr_b, data_range=255)
 
     if np.isinf(value):
@@ -75,3 +79,4 @@ def compute_ssim(
         data_range=255,
     )
     return float(value)
+

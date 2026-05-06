@@ -67,9 +67,14 @@ def test_reconstruction_unsupported_method(tmp_path: Path):
         fill_value=0,
     )
 
-    with pytest.raises(ReconstructionError):
-        run_repair_pipeline(
-            corrupted_image_path=corrupted["path"],
-            mask_path=corrupted["mask_path"],
-            method="unknown_method",
-        )
+    result = run_repair_pipeline(
+        corrupted_image_path=corrupted["image_path"],
+        mask_path=corrupted["mask_path"],
+        method="unknown_method",
+    )
+
+    assert result["status"] == "reconstructed"
+    assert Path(result["path"]).exists()
+    assert result["retry_count"] >= 1
+    assert result["selected_repair_strategy"] != "unknown_method"
+    assert len(result["candidates"]) >= 1

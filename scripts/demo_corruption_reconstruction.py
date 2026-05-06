@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.core.config import ensure_directories
 from app.services.pipeline_service import run_demo_pipeline
-from app.services.full_pipeline_service import run_full_pipeline
+from app.core.full_pipeline_service import run_full_pipeline
 
 def main() -> None:
     ensure_directories()
