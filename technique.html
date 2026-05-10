@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forensic Recovery — Documentation Technique</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0a0f;--surface:#111118;--surface2:#1a1a24;
+    --border:#2a2a3a;--accent:#00e5ff;--accent2:#ff3d71;
+    --accent3:#a259ff;--text:#e8e8f0;--muted:#6b6b80;
+    --success:#00e096;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,.015) 2px,rgba(0,229,255,.015) 4px);pointer-events:none;z-index:0}
+
+  header{position:relative;padding:1.5rem 3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:1}
+  .logo{display:flex;align-items:center;gap:1rem}
+  .logo-icon{width:36px;height:36px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center}
+  .logo-text{font-size:1rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+  .logo-sub{font-family:var(--mono);font-size:.6rem;color:var(--accent);letter-spacing:.2em}
+  .back-btn{font-family:var(--mono);font-size:.7rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.4rem .8rem;transition:all .2s}
+  .back-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+  nav{position:relative;z-index:1;border-bottom:1px solid var(--border);padding:0 3rem;display:flex;gap:0;overflow-x:auto}
+  .nav-btn{font-family:var(--mono);font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:1rem 1.2rem;cursor:pointer;white-space:nowrap;transition:all .2s}
+  .nav-btn:hover{color:var(--text)}
+  .nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+  main{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:3rem}
+
+  section{display:none}
+  section.active{display:block}
+
+  h1{font-size:2rem;font-weight:800;margin-bottom:.5rem}
+  h1 span{color:var(--accent)}
+  .section-sub{font-family:var(--mono);font-size:.75rem;color:var(--muted);letter-spacing:.15em;margin-bottom:3rem}
+
+  /* Pipeline diagram container */
+  .pipeline-wrap{background:var(--surface);border:1px solid var(--border);padding:2rem;position:relative;overflow:hidden;margin-bottom:2rem}
+  .pipeline-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent3))}
+
+  /* Corruption cards */
+  .corruption-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+  .corruption-card{background:var(--surface);border:1px solid var(--border);padding:1.5rem;position:relative;transition:border-color .2s;cursor:default}
+  .corruption-card:hover{border-color:var(--accent3)}
+  .corruption-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent3)}
+  .corruption-name{font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.15em;margin-bottom:.3rem;text-transform:uppercase}
+  .corruption-fn{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.8rem}
+  .corruption-desc{font-size:.85rem;color:var(--text);line-height:1.5;margin-bottom:.8rem}
+  .corruption-params{font-family:var(--mono);font-size:.65rem;color:var(--accent3);background:var(--surface2);padding:.4rem .6rem}
+  .corruption-usecase{font-size:.75rem;color:var(--muted);margin-top:.5rem}
+
+  /* Algo cards */
+  .algo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+  .algo-card{background:var(--surface);border:1px solid var(--border);padding:1.5rem;position:relative}
+  .algo-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent)}
+  .algo-name{font-family:var(--mono);font-size:.75rem;color:var(--success);letter-spacing:.1em;margin-bottom:.5rem;text-transform:uppercase}
+  .algo-desc{font-size:.85rem;color:var(--text);line-height:1.6;margin-bottom:.8rem}
+  .algo-detail{font-size:.78rem;color:var(--muted);line-height:1.5}
+  .algo-best{font-family:var(--mono);font-size:.65rem;color:var(--accent3);margin-top:.6rem}
+
+  /* Modes section */
+  .modes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+  .mode-card{background:var(--surface);border:1px solid var(--border);padding:1.5rem}
+  .mode-name{font-family:var(--mono);font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.5rem}
+  .mode-desc{font-size:.85rem;color:var(--muted);line-height:1.6}
+  .mode-card.m-assisted .mode-name{color:var(--success)}
+  .mode-card.m-basic .mode-name{color:#ffaa00}
+  .mode-card.m-advanced .mode-name{color:var(--accent)}
+
+  /* Limits */
+  .limits-list{list-style:none}
+  .limits-list li{padding:1rem 1.5rem;border-left:2px solid var(--border);margin-bottom:.75rem;background:var(--surface);font-size:.85rem;line-height:1.6;color:var(--text)}
+  .limits-list li::before{content:'⚠';margin-right:.5rem;color:#ffaa00}
+  .limit-title{font-family:var(--mono);font-size:.7rem;color:#ffaa00;letter-spacing:.1em;display:block;margin-bottom:.3rem}
+
+  /* Scoring section */
+  .metric-row{display:flex;align-items:center;gap:1rem;padding:.8rem 0;border-bottom:1px solid var(--border)}
+  .metric-name{font-family:var(--mono);font-size:.75rem;color:var(--accent);width:140px;flex-shrink:0}
+  .metric-desc{font-size:.83rem;color:var(--text);flex:1}
+  .metric-range{font-family:var(--mono);font-size:.65rem;color:var(--muted);width:80px;text-align:right}
+
+  @media(max-width:900px){
+    main{padding:1.5rem}
+    header{padding:1.5rem}
+    nav{padding:0 1.5rem}
+    .modes-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+        <circle cx="9" cy="9" r="2" fill="#00e5ff" opacity=".6"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">Forensic Recovery</div>
+      <div class="logo-sub">Documentation Technique</div>
+    </div>
+  </div>
+  <a href="forensic_ui.html" class="back-btn">← Interface principale</a>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="show('pipeline')">Pipeline</button>
+  <button class="nav-btn" onclick="show('corruptions')">Dégradations</button>
+  <button class="nav-btn" onclick="show('reconstruction')">Reconstruction</button>
+  <button class="nav-btn" onclick="show('scoring')">Scoring</button>
+  <button class="nav-btn" onclick="show('modes')">Modes d'exécution</button>
+  <button class="nav-btn" onclick="show('limits')">Limites</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════════ PIPELINE -->
+<section id="pipeline" class="active">
+  <h1>Pipeline <span>général</span></h1>
+  <div class="section-sub">// ARCHITECTURE DU SYSTÈME DE BOUT EN BOUT</div>
+
+  <div class="pipeline-wrap">
+    <svg width="100%" viewBox="0 0 1100 320" role="img">
+      <title>Diagramme pipeline forensic</title>
+      <desc>Flux : Upload → Validation → Corruption → Détection masque → Reconstruction multi-essais → Scoring → Rapport</desc>
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#00e5ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#a259ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- Étape 1 : Upload -->
+      <rect x="20" y="100" width="110" height="64" rx="4" fill="#1a1a24" stroke="#00e5ff" stroke-width="1"/>
+      <text font-family="Space Mono" font-size="10" fill="#00e5ff" x="75" y="122" text-anchor="middle" letter-spacing="1">UPLOAD</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="75" y="140" text-anchor="middle">Image JPEG/PNG</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="75" y="154" text-anchor="middle">Validation format</text>
+
+      <line x1="130" y1="132" x2="158" y2="132" stroke="#00e5ff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Étape 2 : Corruption -->
+      <rect x="160" y="100" width="120" height="64" rx="4" fill="#1a1a24" stroke="#ff3d71" stroke-width="1"/>
+      <text font-family="Space Mono" font-size="10" fill="#ff3d71" x="220" y="122" text-anchor="middle" letter-spacing="1">CORRUPTION</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="220" y="140" text-anchor="middle">15 types disponibles</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="220" y="154" text-anchor="middle">Masque exact généré</text>
+
+      <line x1="280" y1="132" x2="308" y2="132" stroke="#00e5ff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Étape 3 : Détection -->
+      <rect x="310" y="100" width="120" height="64" rx="4" fill="#1a1a24" stroke="#ffaa00" stroke-width="1"/>
+      <text font-family="Space Mono" font-size="10" fill="#ffaa00" x="370" y="122" text-anchor="middle" letter-spacing="1">DÉTECTION</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="370" y="140" text-anchor="middle">Masque auto ou exact</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="370" y="154" text-anchor="middle">IoU / Précision</text>
+
+      <line x1="430" y1="132" x2="458" y2="132" stroke="#00e5ff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Étape 4 : Reconstruction -->
+      <rect x="460" y="80" width="200" height="104" rx="4" fill="#111118" stroke="#a259ff" stroke-width="1.5"/>
+      <text font-family="Space Mono" font-size="10" fill="#a259ff" x="560" y="102" text-anchor="middle" letter-spacing="1">RECONSTRUCTION</text>
+      <!-- Mini stratégies -->
+      <rect x="472" y="110" width="84" height="20" rx="2" fill="#1a1a24" stroke="#a259ff" stroke-width=".5"/>
+      <text font-family="Space Mono" font-size="7" fill="#a259ff" x="514" y="123" text-anchor="middle">Inpainting ×3</text>
+      <rect x="564" y="110" width="84" height="20" rx="2" fill="#1a1a24" stroke="#a259ff" stroke-width=".5"/>
+      <text font-family="Space Mono" font-size="7" fill="#a259ff" x="606" y="123" text-anchor="middle">Denoise ×3</text>
+      <rect x="472" y="136" width="84" height="20" rx="2" fill="#1a1a24" stroke="#a259ff" stroke-width=".5"/>
+      <text font-family="Space Mono" font-size="7" fill="#a259ff" x="514" y="149" text-anchor="middle">Deblur ×2</text>
+      <rect x="564" y="136" width="84" height="20" rx="2" fill="#1a1a24" stroke="#a259ff" stroke-width=".5"/>
+      <text font-family="Space Mono" font-size="7" fill="#a259ff" x="606" y="149" text-anchor="middle">Hybrid + Block</text>
+      <text font-family="Syne" font-size="9" fill="#00e096" x="560" y="174" text-anchor="middle">Meilleur candidat sélectionné</text>
+
+      <line x1="660" y1="132" x2="688" y2="132" stroke="#00e5ff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Étape 5 : Scoring -->
+      <rect x="690" y="100" width="120" height="64" rx="4" fill="#1a1a24" stroke="#00e096" stroke-width="1"/>
+      <text font-family="Space Mono" font-size="10" fill="#00e096" x="750" y="122" text-anchor="middle" letter-spacing="1">SCORING</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="750" y="140" text-anchor="middle">PSNR / SSIM</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="750" y="154" text-anchor="middle">Score 0–100</text>
+
+      <line x1="810" y1="132" x2="838" y2="132" stroke="#00e5ff" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Étape 6 : Rapport -->
+      <rect x="840" y="100" width="120" height="64" rx="4" fill="#1a1a24" stroke="#00e5ff" stroke-width="1"/>
+      <text font-family="Space Mono" font-size="10" fill="#00e5ff" x="900" y="122" text-anchor="middle" letter-spacing="1">RAPPORT</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="900" y="140" text-anchor="middle">JSON + PDF</text>
+      <text font-family="Syne" font-size="9" fill="#6b6b80" x="900" y="154" text-anchor="middle">Analyse qualitative</text>
+
+      <!-- Labels bas -->
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="75"  y="220" text-anchor="middle">01</text>
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="220" y="220" text-anchor="middle">02</text>
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="370" y="220" text-anchor="middle">03</text>
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="560" y="220" text-anchor="middle">04</text>
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="750" y="220" text-anchor="middle">05</text>
+      <text font-family="Space Mono" font-size="8" fill="#2a2a3a" x="900" y="220" text-anchor="middle">06</text>
+
+      <!-- Ligne de base -->
+      <line x1="20" y1="200" x2="1060" y2="200" stroke="#2a2a3a" stroke-width=".5"/>
+
+      <!-- Légende mode aveugle -->
+      <text font-family="Space Mono" font-size="8" fill="#ffaa00" x="370" y="250" text-anchor="middle">Mode aveugle</text>
+      <text font-family="Syne" font-size="8" fill="#6b6b80" x="370" y="265" text-anchor="middle">Détection automatique du masque</text>
+      <line x1="370" y1="168" x2="370" y2="240" stroke="#ffaa00" stroke-width=".5" stroke-dasharray="3 3"/>
+
+      <text font-family="Space Mono" font-size="8" fill="#00e096" x="220" y="250" text-anchor="middle">Mode assisté</text>
+      <text font-family="Syne" font-size="8" fill="#6b6b80" x="220" y="265" text-anchor="middle">Masque exact utilisé</text>
+      <line x1="220" y1="168" x2="220" y2="240" stroke="#00e096" stroke-width=".5" stroke-dasharray="3 3"/>
+    </svg>
+  </div>
+
+  <!-- Résumé textuel -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+    <div style="background:var(--surface);border:1px solid var(--border);padding:1.2rem">
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.15em;margin-bottom:.5rem">ENTRÉE</div>
+      <p style="font-size:.83rem;color:var(--text);line-height:1.6">Image JPEG ou PNG uploadée via l'interface web ou l'API REST. Validation du format, de la taille et des magic bytes avant traitement.</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);padding:1.2rem">
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent3);letter-spacing:.15em;margin-bottom:.5rem">TRAITEMENT</div>
+      <p style="font-size:.83rem;color:var(--text);line-height:1.6">Pipeline séquentiel : corruption → détection masque → 11 stratégies de reconstruction testées en parallèle → sélection automatique du meilleur candidat par score.</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);padding:1.2rem">
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--success);letter-spacing:.15em;margin-bottom:.5rem">SORTIE</div>
+      <p style="font-size:.83rem;color:var(--text);line-height:1.6">3 images (original / corrompu / reconstruit), score 0–100, stratégie sélectionnée, tableau complet des candidats, rapport JSON et PDF téléchargeable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ CORRUPTIONS -->
+<section id="corruptions">
+  <h1>Dégradations <span>disponibles</span></h1>
+  <div class="section-sub">// 15 TYPES DE CORRUPTION RÉALISTES IMPLÉMENTÉS</div>
+
+  <div class="corruption-grid">
+    <div class="corruption-card">
+      <div class="corruption-name">Rayures</div>
+      <div class="corruption-fn">apply_scratch_lines()</div>
+      <div class="corruption-desc">Traits fins ou épais tracés en diagonale simulant des égratignures physiques sur un support photographique.</div>
+      <div class="corruption-params">count, thickness, angle_range, color, seed</div>
+      <div class="corruption-usecase">→ Simulation de négatifs rayés, supports optiques endommagés</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Carré supprimé</div>
+      <div class="corruption-fn">apply_large_deleted_square()</div>
+      <div class="corruption-desc">Suppression d'un grand carré centré couvrant une fraction significative de l'image. Simule une perte de secteur disque.</div>
+      <div class="corruption-params">size_ratio, fill_mode, seed</div>
+      <div class="corruption-usecase">→ Perte de cluster, secteur défaillant</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Barres multiples</div>
+      <div class="corruption-fn">apply_multiple_bars()</div>
+      <div class="corruption-desc">N barres horizontales ou verticales réparties aléatoirement. Simule des erreurs de transmission ou de lecture linéaire.</div>
+      <div class="corruption-params">count, orientation, thickness, fill_mode, seed</div>
+      <div class="corruption-usecase">→ Erreurs de transmission, artefacts d'encodage vidéo</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Trous aléatoires</div>
+      <div class="corruption-fn">apply_random_holes()</div>
+      <div class="corruption-desc">N zones rectangulaires de tailles variables dispersées aléatoirement dans l'image.</div>
+      <div class="corruption-params">count, min_size, max_size, fill_mode, seed</div>
+      <div class="corruption-usecase">→ Corruption aléatoire de clusters, bad blocks</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Bruit local</div>
+      <div class="corruption-fn">apply_local_noise()</div>
+      <div class="corruption-desc">Bruit gaussien ou sel-et-poivre appliqué sur une zone définie. Simule une dégradation capteur ou une interférence électromagnétique.</div>
+      <div class="corruption-params">x, y, width, height, sigma, noise_type, seed</div>
+      <div class="corruption-usecase">→ Dégradation capteur, interférence EM localisée</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Zone supprimée</div>
+      <div class="corruption-fn">apply_zone_deletion()</div>
+      <div class="corruption-desc">Remplacement d'une zone rectangulaire par du noir, blanc, gris ou bruit. Masque précis retourné.</div>
+      <div class="corruption-params">x, y, width, height, fill_mode, seed</div>
+      <div class="corruption-usecase">→ Overwrite de zone mémoire, corruption ciblée</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Masque rectangulaire</div>
+      <div class="corruption-fn">apply_rectangle_mask()</div>
+      <div class="corruption-desc">Remplacement d'une zone par une valeur fixe (0=noir, 255=blanc). Corruption déterministe simple.</div>
+      <div class="corruption-params">x, y, width, height, fill_value</div>
+      <div class="corruption-usecase">→ Démo, tests, référence</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Barre unique</div>
+      <div class="corruption-fn">apply_bar_corruption()</div>
+      <div class="corruption-desc">Une ou plusieurs barres avec espacement contrôlé (gap). Plus précis que multiple_bars pour les cas documentés.</div>
+      <div class="corruption-params">orientation, thickness, position, count, gap, fill_mode</div>
+      <div class="corruption-usecase">→ Ligne de synchronisation perdue, entrelacement</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Blocs abandonnés</div>
+      <div class="corruption-fn">apply_block_dropout()</div>
+      <div class="corruption-desc">Suppression aléatoire de blocs NxN selon un ratio de perte. Simule une compression avec perte de blocs JPEG.</div>
+      <div class="corruption-params">block_size, drop_ratio, fill_mode, seed</div>
+      <div class="corruption-usecase">→ Perte de paquets réseau, JPEG partiel</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Artefacts JPEG</div>
+      <div class="corruption-fn">apply_jpeg_block_artifacts()</div>
+      <div class="corruption-desc">Simulation d'artefacts de pixellisation par downscale/upscale sur une zone. Effet mosïaque de mauvaise compression.</div>
+      <div class="corruption-params">x, y, width, height, block_size</div>
+      <div class="corruption-usecase">→ Sur-compression JPEG, artefacts de recompression</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Flou local</div>
+      <div class="corruption-fn">apply_local_blur()</div>
+      <div class="corruption-desc">Flou gaussien appliqué sur une zone rectangulaire. Simule une mise au point incorrecte ou un mouvement sur une portion.</div>
+      <div class="corruption-params">x, y, width, height, kernel_size</div>
+      <div class="corruption-usecase">→ Flou de bougé, défaut optique localisé</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Bruit gaussien</div>
+      <div class="corruption-fn">apply_noise()</div>
+      <div class="corruption-desc">Ajout de bruit gaussien sur une zone définie avec intensité sigma paramétrable.</div>
+      <div class="corruption-params">x, y, width, height, sigma, seed</div>
+      <div class="corruption-usecase">→ Dégradation de capteur, numérisation basse qualité</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Décalage de région</div>
+      <div class="corruption-fn">apply_shift_region()</div>
+      <div class="corruption-desc">Déplace une zone de l'image par translation (shift_x, shift_y). L'original laisse une trace noire/blanche.</div>
+      <div class="corruption-params">x, y, width, height, shift_x, shift_y, fill_mode</div>
+      <div class="corruption-usecase">→ Corruption de métadonnées d'offset, réassemblage incorrect</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Combinée</div>
+      <div class="corruption-fn">apply_combined_corruption()</div>
+      <div class="corruption-desc">Zone noire + halo de bruit autour. Simulation d'une corruption avec effets de bord (write failure + charge résiduelle).</div>
+      <div class="corruption-params">x, y, width, height, fill_value, sigma, seed</div>
+      <div class="corruption-usecase">→ Défaillance flash NAND, write failure</div>
+    </div>
+    <div class="corruption-card">
+      <div class="corruption-name">Mixte</div>
+      <div class="corruption-fn">apply_mixed_corruption()</div>
+      <div class="corruption-desc">Combinaison de plusieurs dégradations selon une liste d'opérations. Masque cumulé retourné. Le plus réaliste.</div>
+      <div class="corruption-params">seed, operations: [{type, ...params}]</div>
+      <div class="corruption-usecase">→ Scénario forensique réel multi-dégradation</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════ RECONSTRUCTION -->
+<section id="reconstruction">
+  <h1>Algorithmes de <span>reconstruction</span></h1>
+  <div class="section-sub">// 11 STRATÉGIES TESTÉES AUTOMATIQUEMENT, MEILLEURE SÉLECTIONNÉE</div>
+
+  <div class="algo-grid">
+    <div class="algo-card">
+      <div class="algo-name">Inpainting r3 / r5 / r7</div>
+      <div class="algo-desc">Reconstruction OpenCV par Navier-Stokes ou Telea selon le rayon de diffusion (3, 5 ou 7 pixels). Propage les textures environnantes dans la zone masquée.</div>
+      <div class="algo-detail">L'algorithme Navier-Stokes résout les équations de diffusion de couleur depuis les bords du masque vers l'intérieur. Telea utilise une estimation rapide basée sur la distance aux bords. Le rayon contrôle la zone d'influence.</div>
+      <div class="algo-best">→ Optimal pour : zone_deletion, bar, rectangle_mask, scratch_lines</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Denoise median</div>
+      <div class="algo-desc">Filtre médian sur l'image entière. Élimine le bruit sel-et-poivre en remplaçant chaque pixel par la médiane de son voisinage.</div>
+      <div class="algo-detail">Préserve mieux les contours que le filtre gaussien. Insensible aux valeurs extrêmes (outliers). Taille de noyau : 5×5 par défaut.</div>
+      <div class="algo-best">→ Optimal pour : noise, local_noise, salt_pepper</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Denoise gaussian</div>
+      <div class="algo-desc">Convolution gaussienne 2D. Lisse le bruit de manière isotrope en pondérant les pixels voisins selon une distribution gaussienne.</div>
+      <div class="algo-detail">Rapide et simple. Tend à flouter légèrement les contours. Efficace sur le bruit gaussien additif.</div>
+      <div class="algo-best">→ Optimal pour : noise gaussien, combined</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Denoise bilatéral</div>
+      <div class="algo-desc">Filtrage bilatéral préservant les contours : lisse les zones homogènes tout en respectant les discontinuités de couleur.</div>
+      <div class="algo-detail">Combine filtre spatial + filtre de range (intensité). Plus lent que gaussian/median mais produit un résultat visuellement supérieur sur les images naturelles.</div>
+      <div class="algo-best">→ Optimal pour : bruit + préservation des bords</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Deblur light / strong</div>
+      <div class="algo-desc">Défloutage par déconvolution. "Light" : 1 passe. "Strong" : 2 passes successives pour les flous intenses. Utilisé sur les zones floues ou les artefacts de compression.</div>
+      <div class="algo-detail">Implémenté par filtre de netteté (unsharp mask ou Laplacian sharpening). Peut amplifier le bruit si appliqué en excès.</div>
+      <div class="algo-best">→ Optimal pour : local_blur, jpeg_block_artifacts</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Block repair</div>
+      <div class="algo-desc">Réparation spécifique aux artefacts de blocs JPEG : détecte et lisse les frontières entre blocs 8×8 pour éliminer l'effet mosïaque.</div>
+      <div class="algo-detail">Applique un filtre de lissage adaptatif aux jointures de blocs. Moins destructif que le débruitage global.</div>
+      <div class="algo-best">→ Optimal pour : jpeg_block_artifacts, block_dropout</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Hybrid denoise + inpaint</div>
+      <div class="algo-desc">Pipeline composé : débruitage médian d'abord, puis inpainting sur le résultat. Combine la réduction de bruit et la reconstruction de zone manquante.</div>
+      <div class="algo-detail">La passe de débruitage rend les bords du masque plus propres, ce qui améliore la qualité de la diffusion inpainting.</div>
+      <div class="algo-best">→ Optimal pour : mixed, combined, block_dropout</div>
+    </div>
+    <div class="algo-card">
+      <div class="algo-name">Conservative (baseline)</div>
+      <div class="algo-desc">Retourne l'image corrompue sans modification. Sert de référence pour vérifier que toute reconstruction améliore bien l'image par rapport à la corruption brute.</div>
+      <div class="algo-detail">Toujours inclus dans les candidats. Si le conservative gagne, cela indique que les reconstructions ont dégradé l'image.</div>
+      <div class="algo-best">→ Baseline : score de l'image corrompue non reconstruite</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ SCORING -->
+<section id="scoring">
+  <h1>Scoring <span>et métriques</span></h1>
+  <div class="section-sub">// ÉVALUATION QUANTITATIVE DE LA QUALITÉ DE RECONSTRUCTION</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem">
+    <div style="background:var(--surface);border:1px solid var(--border);padding:1.5rem">
+      <div style="font-family:var(--mono);font-size:.7rem;color:var(--success);letter-spacing:.15em;margin-bottom:1rem">MODE SUPERVISÉ</div>
+      <p style="font-size:.83rem;color:var(--muted);line-height:1.6;margin-bottom:1rem">Quand l'image originale est disponible. Score le plus fiable.</p>
+      <div class="metric-row">
+        <div class="metric-name">PSNR</div>
+        <div class="metric-desc">Peak Signal-to-Noise Ratio. Mesure l'écart moyen pixel par pixel en dB. Plus élevé = meilleure reconstruction.</div>
+        <div class="metric-range">0–100 dB</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">SSIM</div>
+        <div class="metric-desc">Structural Similarity. Mesure la similarité perceptuelle (luminance, contraste, structure). Proche de 1.0 = quasi-identique.</div>
+        <div class="metric-range">0–1</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Gain PSNR</div>
+        <div class="metric-desc">PSNR reconstruit − PSNR corrompu. Mesure l'amélioration nette apportée par la reconstruction.</div>
+        <div class="metric-range">dB</div>
+      </div>
+      <div class="metric-row" style="border:none">
+        <div class="metric-name">Score global</div>
+        <div class="metric-desc">0.60×SSIM + 0.20×PSNR/100 + 0.30×gain_SSIM + 0.20×gain_PSNR. Normalisé 0–100.</div>
+        <div class="metric-range">0–100</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);padding:1.5rem">
+      <div style="font-family:var(--mono);font-size:.7rem;color:#ffaa00;letter-spacing:.15em;margin-bottom:1rem">MODE AVEUGLE</div>
+      <p style="font-size:.83rem;color:var(--muted);line-height:1.6;margin-bottom:1rem">Quand l'original est absent. Score heuristique.</p>
+      <div class="metric-row">
+        <div class="metric-name">Netteté</div>
+        <div class="metric-desc">Variance du Laplacien. Une image bien reconstruite a des contours nets (variance élevée).</div>
+        <div class="metric-range">35%</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Bruit résiduel</div>
+        <div class="metric-desc">Écart vs filtre gaussien léger. Un bruit élevé pénalise le score.</div>
+        <div class="metric-range">25%</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Continuité</div>
+        <div class="metric-desc">Gradient Sobel moyen. Récompense les bords présents mais pas excessifs.</div>
+        <div class="metric-range">20%</div>
+      </div>
+      <div class="metric-row" style="border:none">
+        <div class="metric-name">Cohérence</div>
+        <div class="metric-desc">Delta moyen corrompu → reconstruit. Pénalise la sur-correction.</div>
+        <div class="metric-range">10%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grille score -->
+  <div style="background:var(--surface);border:1px solid var(--border);padding:1.5rem">
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.15em;margin-bottom:1rem">INTERPRÉTATION DU SCORE GLOBAL</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">
+      <div style="text-align:center;padding:1rem;border:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:1.5rem;color:var(--success);font-weight:700">≥ 80</div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--success);margin-top:.3rem">EXCELLENT</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.5rem">Reconstruction quasi-parfaite. Zones masquées visuellement indétectables.</div>
+      </div>
+      <div style="text-align:center;padding:1rem;border:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:1.5rem;color:var(--accent);font-weight:700">60–79</div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);margin-top:.3rem">BON</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.5rem">Reconstruction de qualité. Légères traces possibles sur inspection rapprochée.</div>
+      </div>
+      <div style="text-align:center;padding:1rem;border:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:1.5rem;color:#ffaa00;font-weight:700">40–59</div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:#ffaa00;margin-top:.3rem">MOYEN</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.5rem">Reconstruction partielle. Zone masquée visible mais cohérente avec le reste.</div>
+      </div>
+      <div style="text-align:center;padding:1rem;border:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:1.5rem;color:var(--accent2);font-weight:700">< 40</div>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent2);margin-top:.3rem">FAIBLE</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:.5rem">Zone non récupérable. Corruption trop étendue ou complexe pour les algorithmes disponibles.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════ MODES -->
+<section id="modes">
+  <h1>Modes <span>d'exécution</span></h1>
+  <div class="section-sub">// TROIS NIVEAUX D'ASSISTANCE DISPONIBLES</div>
+
+  <div class="modes-grid">
+    <div class="mode-card m-assisted">
+      <div class="mode-name">Assisté</div>
+      <div class="mode-desc">Le masque exact (généré lors de la corruption) est utilisé directement pour la reconstruction. Aucune détection nécessaire. IoU = 1.0. Donne les meilleurs résultats.<br><br><strong style="color:var(--text)">Usage :</strong> évaluation des algorithmes de reconstruction, démo, soutenance.</div>
+    </div>
+    <div class="mode-card m-basic">
+      <div class="mode-name">Aveugle basique</div>
+      <div class="mode-desc">Le masque est détecté automatiquement par seuillage de luminosité (zones anormalement sombres). Rapide mais imprécis sur les images naturellement sombres.<br><br><strong style="color:var(--text)">Usage :</strong> cas forensiques simples (fond clair, zone noire évidente).</div>
+    </div>
+    <div class="mode-card m-advanced">
+      <div class="mode-name">Aveugle avancé</div>
+      <div class="mode-desc">Fusion de 3 détecteurs : zones sombres + faible variance + ruptures de gradient. Classification automatique du type de corruption. Plus précis sur images complexes.<br><br><strong style="color:var(--text)">Usage :</strong> cas forensiques réels sans connaissance de la corruption.</div>
+    </div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);padding:1.5rem">
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.15em;margin-bottom:1rem">PARAMÈTRES API</div>
+    <div style="font-family:var(--mono);font-size:.8rem;color:var(--text);line-height:2">
+      <span style="color:var(--muted)">POST</span> /pipeline/corrupt-and-repair<br>
+      <span style="color:var(--muted)">  image</span>          : UploadFile (JPEG/PNG)<br>
+      <span style="color:var(--muted)">  corruption_type</span> : <span style="color:var(--accent3)">scratch_lines | zone_deletion | multiple_bars | ...</span><br>
+      <span style="color:var(--muted)">  severity</span>        : <span style="color:var(--accent3)">light | medium | heavy</span><br>
+      <span style="color:var(--muted)">  execution_mode</span>  : <span style="color:var(--accent3)">assisted | blind_basic | blind_advanced</span><br>
+      <span style="color:var(--muted)">  max_attempts</span>    : <span style="color:var(--accent3)">int (2–11)</span><br>
+      <span style="color:var(--muted)">  seed</span>            : <span style="color:var(--accent3)">int | null</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ LIMITES -->
+<section id="limits">
+  <h1>Limites <span>du système</span></h1>
+  <div class="section-sub">// CONTRAINTES CONNUES ET PÉRIMÈTRE D'APPLICATION</div>
+
+  <ul class="limits-list">
+    <li>
+      <span class="limit-title">Détection aveugle sur images sombres</span>
+      La détection automatique par seuillage de luminosité génère des faux positifs sur les images naturellement sombres (couchers de soleil, scènes nocturnes, canaux). Le mode aveugle avancé améliore ce point mais ne l'élimine pas. Recommandation : utiliser le mode assisté pour les évaluations précises.
+    </li>
+    <li>
+      <span class="limit-title">Inpainting sur grandes zones (>15% de l'image)</span>
+      L'inpainting OpenCV (Navier-Stokes / Telea) est efficace sur les petites zones masquées. Au-delà de 15% de la surface, la diffusion produit des artefacts de flou ou des incohérences de texture. Le score chute et la stratégie conservative peut l'emporter.
+    </li>
+    <li>
+      <span class="limit-title">Scoring aveugle = estimation heuristique</span>
+      Sans image originale, les métriques (netteté, bruit, gradient) sont des proxies de qualité et non des mesures objectives. Le classement des candidats peut différer du classement supervisé. Confiance réduite, interprétation prudente.
+    </li>
+    <li>
+      <span class="limit-title">Reconstructions complexes (shift_region, block_dropout)</span>
+      Les corruptions impliquant un déplacement de région ou la suppression aléatoire de blocs sur des textures complexes (tissu, fourrure, mosaïque) peuvent donner des reconstructions sous-optimales car les algorithmes cherchent à combler des zones dont le contenu originel est non-inferrable depuis les bords.
+    </li>
+    <li>
+      <span class="limit-title">Performance et scalabilité</span>
+      Le pipeline complet (11 stratégies) prend 2–5 secondes sur une image 1080p sur un Mac M-series. Sur images haute résolution (>4K) ou sans accélération matérielle, le temps peut dépasser 30 secondes. Pas de traitement par lot (batch) en l'état actuel.
+    </li>
+    <li>
+      <span class="limit-title">Pas de deep learning / modèle neuronal</span>
+      Toutes les reconstructions utilisent des algorithmes classiques (OpenCV, filtres, convolutions). Les approches deep learning (Stable Diffusion inpainting, LaMa) donneraient de meilleurs résultats sur les grandes zones mais nécessitent GPU et poids de modèle.
+    </li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+function show(id) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

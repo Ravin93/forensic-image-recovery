@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forensic Image Recovery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #a259ff;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --success: #00e096;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    padding: 2rem 3rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    border: 2px solid var(--accent);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    background: var(--accent);
+    opacity: 0.2;
+    animation: pulse-fill 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} 50%{box-shadow:0 0 12px 2px rgba(0,229,255,0.3)} }
+  @keyframes pulse-fill   { 0%,100%{opacity:.1} 50%{opacity:.4} }
+
+  .logo-text { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .logo-sub  { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); letter-spacing: 0.2em; }
+
+  .api-status {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    color: var(--muted);
+  }
+  .api-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .api-dot.online  { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .api-dot.offline { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+  main {
+    position: relative;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 3rem;
+    z-index: 1;
+  }
+
+  .hero-line {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+  .hero-line span { color: var(--accent); }
+  .hero-sub {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    margin-bottom: 3rem;
+  }
+
+  /* ── Layout 2 colonnes ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* Panel gauche */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+  }
+
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.04);
+  }
+  .dropzone.has-file {
+    border-color: var(--success);
+    background: rgba(0,224,150,0.04);
+  }
+  .dropzone-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.5; }
+  .dropzone-text { font-size: 0.85rem; color: var(--muted); }
+  .dropzone-file { font-family: var(--mono); font-size: 0.75rem; color: var(--success); margin-top: 0.5rem; }
+  #file-input { display: none; }
+
+  /* Sélecteur corruption */
+  .field { margin-top: 1.5rem; }
+  .field label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .field select, .field input[type=range] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    appearance: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .field select:focus, .field select:hover { border-color: var(--accent); outline: none; }
+
+  .corruption-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .corruption-btn {
+    padding: 0.5rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .corruption-btn:hover  { border-color: var(--accent3); color: var(--text); }
+  .corruption-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+
+  /* Sévérité */
+  .severity-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .sev-btn {
+    flex: 1; padding: 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    cursor: pointer;
+    text-align: center;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .sev-btn.active-light  { border-color: var(--success);  color: var(--success);  background: rgba(0,224,150,0.08); }
+  .sev-btn.active-medium { border-color: #ffaa00; color: #ffaa00; background: rgba(255,170,0,0.08); }
+  .sev-btn.active-heavy  { border-color: var(--accent2); color: var(--accent2); background: rgba(255,61,113,0.08); }
+
+  /* Bouton principal */
+  .run-btn {
+    width: 100%;
+    margin-top: 2rem;
+    padding: 1rem;
+    background: transparent;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .run-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+    z-index: -1;
+  }
+  .run-btn:hover { color: var(--bg); }
+  .run-btn:hover::before { transform: translateX(0); }
+  .run-btn:disabled {
+    border-color: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  .run-btn:disabled::before { display: none; }
+
+  /* Loader */
+  .loader { display: none; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+  .loader.visible { display: flex; }
+  .loader-bar {
+    flex: 1; height: 2px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .loader-bar::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -50%;
+    width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 1.2s linear infinite;
+  }
+  @keyframes scan { to { left: 150%; } }
+  .loader-text { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); white-space: nowrap; }
+
+  /* ── Colonne droite ── */
+  .results { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .empty-state {
+    border: 1px dashed var(--border);
+    padding: 5rem 2rem;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-state .es-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+  .empty-state .es-text { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; }
+
+  /* Images triptyque */
+  .triptych {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+  .img-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fadeup 0.4s forwards;
+  }
+  .img-card:nth-child(2) { animation-delay: 0.1s; }
+  .img-card:nth-child(3) { animation-delay: 0.2s; }
+  @keyframes fadeup { to { opacity:1; transform:translateY(0); } }
+
+  .img-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .img-label .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .dot-orig  { background: var(--accent); }
+  .dot-corr  { background: var(--accent2); }
+  .dot-recon { background: var(--success); }
+
+  .img-card img {
+    width: 100%;
+    display: block;
+    image-rendering: auto;
+    min-height: 160px;
+    object-fit: cover;
+    background: var(--surface2);
+  }
+  .img-card-footer {
+    padding: 0.5rem 0.8rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  /* Score panel */
+  .score-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 2rem;
+    align-items: center;
+    opacity: 0;
+    animation: fadeup 0.4s 0.3s forwards;
+  }
+
+  .score-big {
+    font-size: 3.5rem;
+    font-weight: 800;
+    font-family: var(--mono);
+    line-height: 1;
+  }
+  .score-big.excellent { color: var(--success); }
+  .score-big.good      { color: var(--accent); }
+  .score-big.medium    { color: #ffaa00; }
+  .score-big.poor      { color: var(--accent2); }
+
+  .score-bar-wrap { }
+  .score-bar-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.1em;
+  }
+  .score-bar-track {
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    width: 0;
+  }
+
+  .strategy-badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+    text-align: right;
+  }
+  .strategy-label {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.3rem;
+  }
+
+  /* Candidates table */
+  .candidates-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    opacity: 0;
+    animation: fadeup 0.4s 0.4s forwards;
+  }
+  .candidates-header {
+    padding: 0.8rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .candidates-table { width: 100%; border-collapse: collapse; }
+  .candidates-table th {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    padding: 0.5rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .candidates-table td {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    color: var(--text);
+  }
+  .candidates-table tr:last-child td { border-bottom: none; }
+  .candidates-table tr.best-row td { color: var(--accent); background: rgba(0,229,255,0.04); }
+  .score-pill {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.65rem;
+    border-radius: 2px;
+  }
+  .sp-high   { background: rgba(0,224,150,0.15); color: var(--success); }
+  .sp-mid    { background: rgba(255,170,0,0.15);  color: #ffaa00; }
+  .sp-low    { background: rgba(255,61,113,0.15); color: var(--accent2); }
+
+  /* Error box */
+  .error-box {
+    border: 1px solid var(--accent2);
+    padding: 1rem 1.5rem;
+    background: rgba(255,61,113,0.06);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent2);
+    animation: fadeup 0.3s forwards;
+  }
+  .error-box strong { display: block; margin-bottom: 0.3rem; letter-spacing: 0.1em; }
+
+  /* Bouton éditeur masque */
+  .editor-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: .6rem;
+    margin-top: .5rem;
+  }
+  .editor-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem 1rem;
+    background: transparent;
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .2s;
+    opacity: 0;
+    animation: fadeup 0.4s 0.5s forwards;
+  }
+  .editor-btn:hover { background: rgba(162,89,255,.1); }
+
+  /* Bouton PDF */
+  .pdf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.2rem;
+    background: transparent;
+    border: 1px solid var(--accent3);
+    color: var(--accent3);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    opacity: 0;
+    animation: fadeup 0.4s 0.5s forwards;
+  }
+  .pdf-btn:hover { background: rgba(162,89,255,0.1); }
+  .pdf-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+
+  /* ── Mode masque utilisateur ── */
+  .mask-mode-btn {
+    width: 100%; margin-top: 1rem;
+    padding: .7rem;
+    background: transparent;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .mask-mode-btn:hover { background: rgba(255,61,113,.08); }
+  .mask-mode-btn.active { background: rgba(255,61,113,.12); }
+
+  .mask-panel {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .mask-panel.visible { display: flex; }
+
+  .mask-canvas-wrap {
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  #mask-canvas { display: block; width: 100%; }
+  #mask-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; pointer-events: none; }
+
+  .mask-tools { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .mask-tool-btn {
+    padding: .35rem .7rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .65rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all .15s;
+  }
+  .mask-tool-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .mask-tool-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(255,61,113,.08); }
+
+  .brush-size-wrap { display: flex; align-items: center; gap: .4rem; font-family: var(--mono); font-size: .65rem; color: var(--muted); }
+  .brush-size-wrap input { width: 70px; }
+
+  .mask-run-btn {
+    width: 100%; padding: .9rem;
+    background: transparent;
+    border: 2px solid var(--accent2);
+    color: var(--accent2);
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .mask-run-btn:hover { background: rgba(255,61,113,.1); }
+  .mask-run-btn:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* D4 — Score breakdown jauges */
+  .breakdown-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.2rem 1.5rem;
+    opacity: 0;
+    animation: fadeup 0.4s 0.45s forwards;
+  }
+  .breakdown-title {
+    font-family: var(--mono);
+    font-size: .62rem;
+    color: var(--accent);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: .8rem;
+  }
+  .gauge-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .5rem;
+  }
+  .gauge-label {
+    font-family: var(--mono);
+    font-size: .62rem;
+    color: var(--muted);
+    width: 130px;
+    flex-shrink: 0;
+  }
+  .gauge-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .gauge-fill {
+    height: 100%;
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    width: 0;
+  }
+  .gauge-val {
+    font-family: var(--mono);
+    font-size: .6rem;
+    color: var(--text);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .gauge-explanation {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-top: .3rem;
+    font-style: italic;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .triptych { grid-template-columns: 1fr; }
+    .score-panel { grid-template-columns: auto 1fr; }
+    main { padding: 1.5rem; }
+    header { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+        <circle cx="9" cy="9" r="2" fill="#00e5ff" opacity="0.6"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">Forensic Recovery</div>
+      <div class="logo-sub">Image Reconstruction System</div>
+    </div>
+  </div>
+  <a href="mask_editor.html" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.4rem .8rem;transition:all .2s" onmouseover="this.style.color='#a259ff';this.style.borderColor='#a259ff'" onmouseout="this.style.color='';this.style.borderColor=''">✏ Éditeur masque</a>
+  <a href="technique.html" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.4rem .8rem;transition:all .2s" onmouseover="this.style.color='#00e5ff';this.style.borderColor='#00e5ff'" onmouseout="this.style.color='';this.style.borderColor=''">Doc technique →</a>
+  <div class="api-status">
+    <div class="api-dot" id="api-dot"></div>
+    <span id="api-label">Connexion API…</span>
+  </div>
+</header>
+
+<main>
+  <div class="hero-line">Reconstruct.<span> Recover.</span> Analyze.</div>
+  <div class="hero-sub">// FORENSIC IMAGE PIPELINE — MULTI-STRATEGY RECONSTRUCTION</div>
+
+  <div class="layout">
+    <!-- Panneau de contrôle -->
+    <div class="panel">
+      <div class="panel-title">// Paramètres</div>
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">⬡</div>
+        <div class="dropzone-text">Déposer une image ici<br><small>JPEG ou PNG</small></div>
+        <div class="dropzone-file" id="file-name"></div>
+        <input type="file" id="file-input" accept="image/jpeg,image/png">
+      </div>
+
+      <!-- Type de corruption -->
+      <div class="field">
+        <label>Type de dégradation</label>
+        <div class="corruption-grid" id="corruption-grid">
+          <button class="corruption-btn active" data-val="scratch_lines">Rayures</button>
+          <button class="corruption-btn" data-val="large_deleted_square">Carré supprimé</button>
+          <button class="corruption-btn" data-val="multiple_bars">Barres</button>
+          <button class="corruption-btn" data-val="random_holes">Trous aléatoires</button>
+          <button class="corruption-btn" data-val="local_noise">Bruit local</button>
+          <button class="corruption-btn" data-val="zone_deletion">Zone supprimée</button>
+          <button class="corruption-btn" data-val="block_dropout">Blocs</button>
+          <button class="corruption-btn" data-val="mixed">Mixte</button>
+        </div>
+      </div>
+
+      <!-- Sévérité -->
+      <div class="field">
+        <label>Sévérité</label>
+        <div class="severity-row">
+          <button class="sev-btn" data-sev="light">Light</button>
+          <button class="sev-btn active-medium" data-sev="medium">Medium</button>
+          <button class="sev-btn" data-sev="heavy">Heavy</button>
+        </div>
+      </div>
+
+      <!-- Mode exécution -->
+      <div class="field">
+        <label>Mode d'exécution</label>
+        <select id="exec-mode">
+          <option value="assisted">Assisté (masque exact)</option>
+          <option value="blind_basic">Aveugle basique</option>
+          <option value="blind_advanced">Aveugle avancé</option>
+        </select>
+      </div>
+
+      <!-- Max attempts -->
+      <div class="field">
+        <label>Stratégies testées : <span id="attempts-val">8</span></label>
+        <input type="range" id="max-attempts" min="2" max="11" value="8"
+               oninput="document.getElementById('attempts-val').textContent=this.value">
+      </div>
+
+      <button class="run-btn" id="run-btn" disabled>
+        ▶ Lancer l'analyse
+      </button>
+
+      <!-- Mode masque utilisateur C1 -->
+      <button class="mask-mode-btn" id="mask-mode-btn" onclick="toggleMaskMode()">
+        ✏ Dessiner un masque manuellement
+      </button>
+
+      <div class="mask-panel" id="mask-panel">
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent2);letter-spacing:.1em">
+          Dessinez la zone à reconstruire directement sur l'image
+        </div>
+        <div class="mask-canvas-wrap" id="mask-canvas-wrap" style="height:200px">
+          <img id="mask-preview-img" alt="aperçu image">
+          <canvas id="mask-canvas" width="400" height="200"></canvas>
+        </div>
+        <div class="mask-tools">
+          <button class="mask-tool-btn active" id="btn-brush" onclick="setTool('brush')">Pinceau</button>
+          <button class="mask-tool-btn" id="btn-eraser" onclick="setTool('eraser')">Gomme</button>
+          <button class="mask-tool-btn" onclick="clearMask()">Reset</button>
+          <div class="brush-size-wrap">
+            Taille <input type="range" id="brush-size" min="5" max="60" value="20"
+              oninput="document.getElementById('brush-val').textContent=this.value">
+            <span id="brush-val">20</span>px
+          </div>
+        </div>
+        <button class="mask-run-btn" id="mask-run-btn" onclick="runWithMask()" disabled>
+          ▶ Reconstruire avec ce masque
+        </button>
+      </div>
+
+      <div class="loader" id="loader">
+        <div class="loader-bar"></div>
+        <div class="loader-text" id="loader-text">Initialisation…</div>
+      </div>
+    </div>
+
+    <!-- Zone résultats -->
+    <div class="results" id="results">
+      <div class="empty-state" id="empty-state">
+        <div class="es-icon">◈</div>
+        <div class="es-text">Aucune analyse en cours<br>Sélectionner une image pour commencer</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = 'http://localhost:8000';
+
+// ── État ──
+let selectedFile = null;
+let selectedCorruption = 'scratch_lines';
+let selectedSeverity = 'medium';
+
+// ── API health check ──
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    document.getElementById('api-dot').className = 'api-dot ' + (ok ? 'online' : 'offline');
+    document.getElementById('api-label').textContent = ok ? 'API connectée' : 'API indisponible';
+  } catch {
+    document.getElementById('api-dot').className = 'api-dot offline';
+    document.getElementById('api-label').textContent = 'API hors ligne';
+  }
+}
+checkApi();
+setInterval(checkApi, 10000);
+
+// ── Drop zone ──
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(f) {
+  selectedFile = f;
+  dropzone.classList.add('has-file');
+  document.getElementById('file-name').textContent = f.name;
+  document.getElementById('run-btn').disabled = false;
+}
+
+// ── Sélecteurs corruption ──
+document.getElementById('corruption-grid').addEventListener('click', e => {
+  const btn = e.target.closest('.corruption-btn');
+  if (!btn) return;
+  document.querySelectorAll('.corruption-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCorruption = btn.dataset.val;
+});
+
+// ── Sévérité ──
+document.querySelectorAll('.sev-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sev-btn').forEach(b => b.className = 'sev-btn');
+    selectedSeverity = btn.dataset.sev;
+    btn.classList.add(`active-${selectedSeverity}`);
+  });
+});
+
+// ── Loader messages ──
+const loaderMessages = [
+  'Chargement de l\'image…',
+  'Application de la dégradation…',
+  'Génération du masque…',
+  'Tentative inpainting r3…',
+  'Tentative inpainting r5…',
+  'Débruitage médian…',
+  'Débruitage bilatéral…',
+  'Défloutage…',
+  'Réparation de blocs…',
+  'Reconstruction hybride…',
+  'Calcul des scores PSNR/SSIM…',
+  'Sélection du meilleur candidat…',
+  'Génération du rapport…',
+];
+let loaderInterval = null;
+let loaderIdx = 0;
+
+function startLoader() {
+  loaderIdx = 0;
+  const el = document.getElementById('loader-text');
+  el.textContent = loaderMessages[0];
+  document.getElementById('loader').classList.add('visible');
+  loaderInterval = setInterval(() => {
+    loaderIdx = (loaderIdx + 1) % loaderMessages.length;
+    el.textContent = loaderMessages[loaderIdx];
+  }, 900);
+}
+
+function stopLoader() {
+  clearInterval(loaderInterval);
+  document.getElementById('loader').classList.remove('visible');
+}
+
+// ── Requête API ──
+document.getElementById('run-btn').addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  startLoader();
+  clearResults();
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+  formData.append('corruption_type', selectedCorruption);
+  formData.append('severity', selectedSeverity);
+  formData.append('execution_mode', document.getElementById('exec-mode').value);
+  formData.append('max_attempts', document.getElementById('max-attempts').value);
+  formData.append('seed', '42');
+
+  try {
+    const resp = await fetch(`${API}/pipeline/corrupt-and-repair`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    stopLoader();
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      showError(err.detail || 'Erreur inconnue');
+    } else {
+      const data = await resp.json();
+      renderResults(data);
+    }
+  } catch (e) {
+    stopLoader();
+    showError('Impossible de contacter l\'API. Vérifiez que le serveur tourne sur ' + API);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function clearResults() {
+  const r = document.getElementById('results');
+  r.innerHTML = '<div class="empty-state" id="empty-state"><div class="es-icon">◈</div><div class="es-text">Analyse en cours…</div></div>';
+}
+
+function showError(msg) {
+  document.getElementById('results').innerHTML = `
+    <div class="error-box">
+      <strong>// ERREUR</strong>
+      ${escHtml(msg)}
+    </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scoreClass(s) {
+  if (s >= 80) return 'excellent';
+  if (s >= 60) return 'good';
+  if (s >= 40) return 'medium';
+  return 'poor';
+}
+function pillClass(s) {
+  if (s >= 70) return 'sp-high';
+  if (s >= 40) return 'sp-mid';
+  return 'sp-low';
+}
+
+// ── Rendu résultats ──
+function renderBreakdown(data) {
+  // Récupère le score_breakdown du meilleur candidat
+  const best = (data.candidates || []).find(c => c.strategy === data.selected_repair_strategy) || {};
+  const bd = best.score_breakdown || null;
+  if (!bd) return '';
+
+  const mode = best.mode || 'supervised';
+  const isSup = mode === 'supervised';
+
+  const gauges = isSup ? [
+    { label: 'SSIM global',      val: bd.ssim_component,      max: 60,  color: 'var(--accent)' },
+    { label: 'PSNR global',      val: bd.psnr_component,      max: 20,  color: 'var(--accent3)' },
+    { label: 'Gain SSIM',        val: bd.gain_ssim_component,  max: 30, color: 'var(--success)' },
+    { label: 'Gain PSNR',        val: bd.gain_psnr_component,  max: 20, color: 'var(--success)' },
+    { label: 'Zone reconstruite',val: bd.mask_region_score,    max: 100, color: '#ffaa00' },
+    { label: 'Hors zone',        val: bd.outside_score,        max: 100, color: 'var(--accent)' },
+  ] : [
+    { label: 'Netteté',          val: bd.sharpness_component,  max: 25,  color: 'var(--accent)' },
+    { label: 'Bruit résiduel',   val: bd.noise_component,      max: 20,  color: 'var(--accent3)' },
+    { label: 'Contours',         val: bd.edge_component,       max: 20,  color: 'var(--success)' },
+    { label: 'Cohérence couleur',val: bd.color_component,      max: 15,  color: '#ffaa00' },
+    { label: 'Entropie locale',  val: bd.entropy_component,    max: 10,  color: 'var(--accent3)' },
+    { label: 'Artefacts blocs',  val: bd.artifact_component,   max: 10,  color: 'var(--muted)' },
+  ];
+
+  const rows = gauges.map(g => {
+    if (g.val == null) return '';
+    const pct = Math.min(100, Math.max(0, (g.val / g.max) * 100));
+    return `<div class="gauge-row">
+      <div class="gauge-label">${g.label}</div>
+      <div class="gauge-track">
+        <div class="gauge-fill" style="width:${pct}%;background:${g.color}"></div>
+      </div>
+      <div class="gauge-val">${parseFloat(g.val).toFixed(1)}</div>
+    </div>`;
+  }).join('');
+
+  const explanation = isSup
+    ? `Mode <strong style="color:var(--success)">supervisé</strong> — original disponible, métriques PSNR/SSIM exactes.`
+    : `Mode <strong style="color:#ffaa00">aveugle</strong> — score heuristique sans original.`;
+
+  return `<div class="breakdown-panel">
+    <div class="breakdown-title">// Décomposition du score (${mode})</div>
+    ${rows}
+    <div class="gauge-explanation">${explanation}</div>
+  </div>`;
+}
+
+function renderResults(data) {
+  const score     = parseFloat(data.score || 0).toFixed(1);
+  const strategy  = data.selected_repair_strategy || '—';
+  const retries   = data.retry_count ?? 0;
+  const candidates = data.candidates || [];
+  // Extraire le run_id depuis le report_path (ex: report_abc123.json)
+  const reportPath = data.report_path || '';
+  const runIdMatch = reportPath.match(/report_([a-f0-9]+)\.json/);
+  const runId = runIdMatch ? runIdMatch[1] : null;
+
+  // Récupérer les chemins d'images via l'API /files/serve ou directement
+  const origUrl  = `${API}/files/serve?path=${encodeURIComponent(data.original_image)}`;
+  const corrUrl  = `${API}/files/serve?path=${encodeURIComponent(data.corrupted_image)}`;
+  const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
+
+  const sc = scoreClass(parseFloat(score));
+
+  // Triptyque
+  const triptych = `
+  <div class="triptych">
+    <div class="img-card">
+      <div class="img-label"><span class="dot dot-orig"></span>Originale</div>
+      <img src="${origUrl}" alt="Originale" onerror="this.style.opacity=0.3;this.alt='Image non disponible'">
+      <div class="img-card-footer">Source uploadée</div>
+    </div>
+    <div class="img-card">
+      <div class="img-label"><span class="dot dot-corr"></span>Corrompue</div>
+      <img src="${corrUrl}" alt="Corrompue" onerror="this.style.opacity=0.3">
+      <div class="img-card-footer">${escHtml(data.corruption_type)} · ${escHtml(selectedSeverity)}</div>
+    </div>
+    <div class="img-card">
+      <div class="img-label"><span class="dot dot-recon"></span>Reconstruite</div>
+      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=0.3">
+      <div class="img-card-footer">Meilleure stratégie</div>
+    </div>
+  </div>`;
+
+  // Score panel
+  const scorePanel = `
+  <div class="score-panel">
+    <div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);letter-spacing:.15em;margin-bottom:.3rem">SCORE GLOBAL</div>
+      <div class="score-big ${sc}">${score}<span style="font-size:1.5rem;opacity:.5">/100</span></div>
+    </div>
+    <div>
+      <div class="score-bar-label">Qualité de reconstruction</div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" id="score-fill"></div>
+      </div>
+      <div style="margin-top:.8rem;font-family:var(--mono);font-size:.65rem;color:var(--muted)">
+        ${retries} stratégie(s) testée(s)
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="strategy-label">Stratégie sélectionnée</div>
+      <div class="strategy-badge">${escHtml(strategy)}</div>
+    </div>
+  </div>`;
+
+  // Tableau candidats
+  const rows = candidates.map(c => {
+    const isBest = c.strategy === strategy;
+    const sc2 = parseFloat(c.score || 0).toFixed(1);
+    const psnr = c.psnr != null ? parseFloat(c.psnr).toFixed(1) + ' dB' : '—';
+    const ssim = c.ssim != null ? parseFloat(c.ssim).toFixed(3) : '—';
+    return `<tr class="${isBest ? 'best-row' : ''}">
+      <td>${isBest ? '▶ ' : ''}${escHtml(c.strategy)}</td>
+      <td><span class="score-pill ${pillClass(parseFloat(sc2))}">${sc2}</span></td>
+      <td>${psnr}</td>
+      <td>${ssim}</td>
+      <td style="color:var(--muted)">${c.mode || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const candidatesPanel = `
+  <div class="candidates-panel">
+    <div class="candidates-header">// Candidats de reconstruction (${candidates.length})</div>
+    <table class="candidates-table">
+      <thead>
+        <tr>
+          <th>Stratégie</th><th>Score</th><th>PSNR</th><th>SSIM</th><th>Mode</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+
+  const corruptedEncoded = encodeURIComponent(data.corrupted_image);
+  const editorUrl = `mask_editor.html?corrupted_path=${corruptedEncoded}`;
+
+  const actionBar = `<div class="editor-bar">
+    <a class="editor-btn" href="${editorUrl}" target="_blank">
+      ✏ Ouvrir dans l'éditeur de masque
+    </a>
+    ${runId ? `<a class="pdf-btn" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ Rapport PDF</a>` : ''}
+  </div>`;
+  const breakdownPanel = renderBreakdown(data);
+  document.getElementById('results').innerHTML = triptych + scorePanel + breakdownPanel + actionBar + candidatesPanel;
+
+  // Animer la barre de score après injection
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const fill = document.getElementById('score-fill');
+      if (fill) fill.style.width = score + '%';
+    });
+  });
+}
+</script>
+</body>
+</html>

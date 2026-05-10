@@ -7,3 +7,6 @@ uvicorn
 pytest
 matplotlib
 pandas
+httpx
+python-multipart
+reportlab
