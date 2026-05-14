@@ -1,26 +1,51 @@
 from __future__ import annotations
 
-import base64
 import io
 import time
 from pathlib import Path
 
 import numpy as np
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
 from PIL import Image
 
+from app.modules.corruption.detection import detect_advanced_mask, detect_dark_regions_mask
 from app.modules.reconstruction.repair_pipeline import run_repair_pipeline
 
 router = APIRouter(tags=["reconstruction"])
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
-_MASKS_DIR = _PROJECT_ROOT / "data" / "masks"
+_MASKS_DIR    = _PROJECT_ROOT / "data" / "masks"
+_INPUT_DIR    = _PROJECT_ROOT / "data" / "input"
 _MASKS_DIR.mkdir(parents=True, exist_ok=True)
+_INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
-# Endpoint existant — conservé
+# Helpers partagés
+# ---------------------------------------------------------------------------
+
+def _save_image(content: bytes, suffix: str, prefix: str = "upload") -> Path:
+    ts = int(time.time())
+    p = _INPUT_DIR / f"{prefix}_{ts}{suffix}"
+    p.write_bytes(content)
+    return p
+
+
+def _save_mask(mask_arr: np.ndarray, prefix: str = "mask") -> Path:
+    ts = int(time.time())
+    p = _MASKS_DIR / f"{prefix}_{ts}.png"
+    Image.fromarray(mask_arr).save(str(p))
+    return p
+
+
+def _binarize_mask(content: bytes) -> np.ndarray:
+    pil = Image.open(io.BytesIO(content)).convert("L")
+    arr = np.array(pil)
+    return ((arr > 128).astype(np.uint8)) * 255
+
+
+# ---------------------------------------------------------------------------
+# Endpoint existant
 # ---------------------------------------------------------------------------
 
 @router.post("/reconstruction")
@@ -29,19 +54,15 @@ def run_reconstruction(data: dict):
         image_path = data.get("image_path")
         mask_path  = data.get("mask_path")
         if not image_path or not mask_path:
-            raise HTTPException(status_code=400, detail="Paramètres manquants")
-        image_path_obj = Path(image_path)
-        mask_path_obj  = Path(mask_path)
-        if not image_path_obj.exists():
+            raise HTTPException(status_code=400, detail="Parametres manquants")
+        ip = Path(image_path)
+        mp = Path(mask_path)
+        if not ip.exists():
             raise HTTPException(status_code=404, detail="Image introuvable")
-        if not mask_path_obj.exists():
-            raise HTTPException(status_code=404, detail="Mask introuvable")
-        result = run_repair_pipeline(
-            corrupted_image_path=image_path_obj,
-            mask_path=mask_path_obj,
-            method="opencv_inpaint",
-        )
-        return result
+        if not mp.exists():
+            raise HTTPException(status_code=404, detail="Masque introuvable")
+        return run_repair_pipeline(corrupted_image_path=ip, mask_path=mp,
+                                   method="opencv_inpaint")
     except HTTPException:
         raise
     except Exception as e:
@@ -49,88 +70,52 @@ def run_reconstruction(data: dict):
 
 
 # ---------------------------------------------------------------------------
-# Ticket C2+C3 — POST /reconstruction/repair-with-mask
+# C2+C3 — POST /reconstruction/repair-with-mask
 # ---------------------------------------------------------------------------
 
 @router.post("/reconstruction/repair-with-mask")
 async def repair_with_user_mask(
-    image: UploadFile = File(..., description="Image corrompue (JPEG ou PNG)"),
-    mask:  UploadFile = File(..., description="Masque PNG dessiné par l'utilisateur (blanc = zone à reconstruire)"),
+    image: UploadFile = File(...),
+    mask:  UploadFile = File(...),
     max_attempts: int = Form(8, ge=1, le=11),
-    original_image_path: str | None = Form(None, description="Chemin optionnel vers l'original pour scoring supervisé"),
+    original_image_path: str | None = Form(None),
 ):
-    """Reconstruit une image en utilisant un masque dessiné manuellement.
-
-    Le masque doit être un PNG en niveaux de gris ou RGBA où les zones
-    blanches (>128) indiquent les zones à reconstruire.
-
-    Retourne le même format que /pipeline/corrupt-and-repair pour
-    compatibilité avec l'affichage front.
-    """
-    # --- Validation image ---
     img_suffix = Path(image.filename or "img.png").suffix.lower()
     if img_suffix not in {".jpg", ".jpeg", ".png"}:
-        raise HTTPException(status_code=422, detail=f"Format image non supporté : {img_suffix}")
+        raise HTTPException(status_code=422, detail=f"Format image non supporte : {img_suffix}")
+    if Path(mask.filename or "mask.png").suffix.lower() != ".png":
+        raise HTTPException(status_code=422, detail="Le masque doit etre un PNG")
 
-    # --- Validation masque ---
-    mask_suffix = Path(mask.filename or "mask.png").suffix.lower()
-    if mask_suffix != ".png":
-        raise HTTPException(status_code=422, detail="Le masque doit être un fichier PNG")
+    img_content  = await image.read(); await image.close()
+    mask_content = await mask.read();  await mask.close()
 
-    # --- Sauvegarde image dans data/input/ ---
-    input_dir = _PROJECT_ROOT / "data" / "input"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    ts = int(time.time())
-    image_path = input_dir / f"usermask_upload_{ts}{img_suffix}"
+    image_path = _save_image(img_content, img_suffix, "usermask_upload")
+
     try:
-        content = await image.read()
-        image_path.write_bytes(content)
-    finally:
-        await image.close()
-
-    # --- Lecture et normalisation du masque ---
-    try:
-        mask_content = await mask.read()
-        pil_mask = Image.open(io.BytesIO(mask_content)).convert("L")
-        mask_arr = np.array(pil_mask)
-        # Binarisation : blanc (>128) = zone à reconstruire
-        binary_mask = ((mask_arr > 128).astype(np.uint8)) * 255
-        pil_binary = Image.fromarray(binary_mask)
+        binary_mask = _binarize_mask(mask_content)
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Masque invalide : {exc}")
-    finally:
-        await mask.close()
 
     if binary_mask.max() == 0:
-        raise HTTPException(
-            status_code=422,
-            detail="Le masque est entièrement noir — aucune zone à reconstruire. "
-                   "Dessinez en blanc les zones à réparer.",
-        )
+        raise HTTPException(status_code=422,
+            detail="Le masque est vide — dessinez en blanc la zone a reparer.")
 
-    # --- Sauvegarde masque dans data/masks/ ---
-    mask_path = _MASKS_DIR / f"usermask_{ts}.png"
-    pil_binary.save(str(mask_path))
+    mask_path = _save_mask(binary_mask, "usermask")
 
-    # --- Reconstruction ---
     orig_path = Path(original_image_path) if original_image_path else None
     if orig_path and not orig_path.exists():
-        orig_path = None  # ignore si introuvable
+        orig_path = None
 
     try:
         result = run_repair_pipeline(
-            corrupted_image_path=image_path,
-            mask_path=mask_path,
-            method="opencv_inpaint",
-            corruption_type="mask_like",
-            detection_confidence=1.0,
-            original_image_path=orig_path,
+            corrupted_image_path=image_path, mask_path=mask_path,
+            method="opencv_inpaint", corruption_type="mask_like",
+            detection_confidence=1.0, original_image_path=orig_path,
             max_attempts=max_attempts,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    # --- Réponse compatible front ---
     return {
         "original_image":           str(image_path),
         "corrupted_image":          str(image_path),
@@ -144,4 +129,164 @@ async def repair_with_user_mask(
         "report_path":              "",
         "corruption_type":          "user_mask",
         "execution_mode":           "user_mask",
+    }
+
+
+# ---------------------------------------------------------------------------
+# C4 — POST /reconstruction/compare-masks
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/reconstruction/compare-masks",
+    summary="Compare masque automatique vs masque utilisateur",
+    description=(
+        "Reconstruit la meme image deux fois : "
+        "une fois avec le masque dessin\u00e9 manuellement, "
+        "une fois avec un masque detect\u00e9 automatiquement. "
+        "Retourne les deux resultats + le meilleur."
+    ),
+)
+async def compare_masks(
+    image: UploadFile = File(..., description="Image corrompue (JPEG ou PNG)"),
+    user_mask: UploadFile = File(..., description="Masque utilisateur (PNG blanc = zone a reconstruire)"),
+    detection_mode: str = Form("basic", description="'basic' ou 'advanced' pour la detection auto"),
+    max_attempts: int = Form(6, ge=1, le=11),
+    original_image_path: str | None = Form(None),
+):
+    """C4 — Reconstruit avec masque auto ET masque utilisateur, compare les scores."""
+    # Validation
+    img_suffix = Path(image.filename or "img.png").suffix.lower()
+    if img_suffix not in {".jpg", ".jpeg", ".png"}:
+        raise HTTPException(status_code=422, detail=f"Format non supporte : {img_suffix}")
+    if Path(user_mask.filename or "mask.png").suffix.lower() != ".png":
+        raise HTTPException(status_code=422, detail="Le masque doit etre un PNG")
+
+    img_content  = await image.read();     await image.close()
+    mask_content = await user_mask.read(); await user_mask.close()
+
+    # Sauvegarde image
+    image_path = _save_image(img_content, img_suffix, "compare_upload")
+
+    # Masque utilisateur
+    try:
+        user_mask_arr = _binarize_mask(mask_content)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Masque invalide : {exc}")
+    if user_mask_arr.max() == 0:
+        raise HTTPException(status_code=422,
+            detail="Le masque utilisateur est vide.")
+    user_mask_path = _save_mask(user_mask_arr, "compare_user_mask")
+
+    # Masque automatique
+    try:
+        if detection_mode == "advanced":
+            det = detect_advanced_mask(str(image_path))
+            auto_mask_img = det["mask"]
+            auto_confidence = float(det.get("confidence", 0.35))
+        else:
+            auto_mask_img = detect_dark_regions_mask(str(image_path))
+            auto_confidence = 0.35
+
+        auto_mask_arr = np.array(auto_mask_img.convert("L"), dtype=np.uint8)
+        auto_mask_path = _save_mask(auto_mask_arr, "compare_auto_mask")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Detection auto echouee : {exc}")
+
+    orig_path = Path(original_image_path) if original_image_path else None
+    if orig_path and not orig_path.exists():
+        orig_path = None
+
+    errors = []
+
+    # Reconstruction avec masque utilisateur
+    try:
+        result_user = run_repair_pipeline(
+            corrupted_image_path=image_path,
+            mask_path=user_mask_path,
+            method="opencv_inpaint",
+            corruption_type="mask_like",
+            detection_confidence=1.0,
+            original_image_path=orig_path,
+            max_attempts=max_attempts,
+        )
+    except Exception as exc:
+        result_user = None
+        errors.append(f"user_mask: {exc}")
+
+    # Reconstruction avec masque automatique
+    try:
+        result_auto = run_repair_pipeline(
+            corrupted_image_path=image_path,
+            mask_path=auto_mask_path,
+            method="opencv_inpaint",
+            corruption_type="mask_like",
+            detection_confidence=auto_confidence,
+            original_image_path=orig_path,
+            max_attempts=max_attempts,
+        )
+    except Exception as exc:
+        result_auto = None
+        errors.append(f"auto_mask: {exc}")
+
+    if result_user is None and result_auto is None:
+        raise HTTPException(status_code=500,
+            detail=f"Les deux reconstructions ont echoue : {errors}")
+
+    # Comparaison des scores
+    score_user = float(result_user.get("score", 0.0)) if result_user else -1.0
+    score_auto = float(result_auto.get("score", 0.0)) if result_auto else -1.0
+
+    if score_user >= score_auto:
+        winner = "user_mask"
+        best_result = result_user
+        best_mask   = str(user_mask_path)
+    else:
+        winner = "auto_mask"
+        best_result = result_auto
+        best_mask   = str(auto_mask_path)
+
+    # Analyse qualitative
+    diff = abs(score_user - score_auto)
+    if diff < 1.0:
+        comparison_note = "Les deux masques donnent des resultats equivalents."
+    elif winner == "user_mask":
+        comparison_note = f"Le masque utilisateur est meilleur de {diff:.1f} points."
+    else:
+        comparison_note = f"La detection automatique est meilleure de {diff:.1f} points."
+
+    return {
+        # Meilleur resultat (compatible avec le front)
+        "original_image":           str(image_path),
+        "corrupted_image":          str(image_path),
+        "reconstructed_image":      best_result["path"] if best_result else "",
+        "mask_path":                best_mask,
+        "score":                    max(score_user, score_auto),
+        "selected_repair_strategy": (best_result or {}).get("selected_repair_strategy", ""),
+        "winner":                   winner,
+        "comparison_note":          comparison_note,
+
+        # Resultat masque utilisateur
+        "user_mask": {
+            "mask_path":                str(user_mask_path),
+            "reconstructed_image":      result_user["path"] if result_user else None,
+            "score":                    score_user if score_user >= 0 else None,
+            "selected_repair_strategy": (result_user or {}).get("selected_repair_strategy"),
+            "retry_count":              (result_user or {}).get("retry_count", 0),
+            "status":                   "completed" if result_user else "failed",
+        },
+
+        # Resultat masque automatique
+        "auto_mask": {
+            "mask_path":                str(auto_mask_path),
+            "detection_mode":           detection_mode,
+            "detection_confidence":     auto_confidence,
+            "reconstructed_image":      result_auto["path"] if result_auto else None,
+            "score":                    score_auto if score_auto >= 0 else None,
+            "selected_repair_strategy": (result_auto or {}).get("selected_repair_strategy"),
+            "retry_count":              (result_auto or {}).get("retry_count", 0),
+            "status":                   "completed" if result_auto else "failed",
+        },
+
+        "status": "completed",
+        "errors": errors if errors else None,
     }

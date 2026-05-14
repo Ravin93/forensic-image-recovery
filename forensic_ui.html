@@ -1101,7 +1101,8 @@ function renderResults(data) {
     <a class="editor-btn" href="${editorUrl}" target="_blank">
       ✏ Ouvrir dans l'éditeur de masque
     </a>
-    ${runId ? `<a class="pdf-btn" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ Rapport PDF</a>` : ''}
+    ${runId ? `<a class="pdf-btn" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
+    ${runId ? `<a class="pdf-btn" href="${API}/reports/html/${runId}" target="_blank" style="border-color:#a259ff;color:#a259ff">↓ HTML</a>` : ''}
   </div>`;
   const breakdownPanel = renderBreakdown(data);
   document.getElementById('results').innerHTML = triptych + scorePanel + breakdownPanel + actionBar + candidatesPanel;

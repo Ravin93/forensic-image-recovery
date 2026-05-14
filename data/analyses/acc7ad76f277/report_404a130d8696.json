@@ -1,0 +1,136 @@
+{
+  "run_id": "404a130d8696",
+  "timestamp": "2026-05-11T21:59:03.471878",
+  "status": "completed",
+  "input": {
+    "source_image": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/input/analysis_1778529543.png",
+    "corruption_type": "scratch_lines",
+    "execution_mode": "assisted",
+    "detection_mode": "basic",
+    "seed": null
+  },
+  "corruption": {
+    "type": "scratch_lines",
+    "parameters": {
+      "count": 5,
+      "thickness": 1,
+      "angle_range": [
+        -30.0,
+        30.0
+      ],
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "seed": 42
+    },
+    "image_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778529543_scratch_lines_20260511_215903.png",
+    "mask_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/masks/analysis_1778529543_scratch_lines_20260511_215903_mask.png",
+    "detected_mask": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/masks/analysis_1778529543_scratch_lines_20260511_215903_mask.png",
+    "randomize": true,
+    "imperfect_mask": false
+  },
+  "reconstruction": {
+    "best_candidate": {
+      "strategy": "inpainting_r3",
+      "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778529543_scratch_lines_20260511_215903_opencv_inpaint_20260511_215903.png",
+      "score": 78.79748631188994,
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215,
+      "gain_psnr": 25.862032095248047,
+      "gain_ssim": 0.16541589473545304,
+      "mode": "supervised"
+    },
+    "all_candidates": [
+      {
+        "strategy": "inpainting_r3",
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778529543_scratch_lines_20260511_215903_opencv_inpaint_20260511_215903.png",
+        "score": 78.79748631188994,
+        "psnr": 45.39250497918722,
+        "ssim": 0.9930683675823215,
+        "gain_psnr": 25.862032095248047,
+        "gain_ssim": 0.16541589473545304,
+        "mode": "supervised"
+      },
+      {
+        "strategy": "conservative",
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778529543_scratch_lines_20260511_215903.png",
+        "score": 53.56524294759995,
+        "psnr": 19.530472883939176,
+        "ssim": 0.8276524728468685,
+        "gain_psnr": 0.0,
+        "gain_ssim": 0.0,
+        "mode": "supervised"
+      }
+    ],
+    "selected_strategy": "inpainting_r3",
+    "recommended_strategy": "inpainting",
+    "score": 78.79748631188994,
+    "retry_count": 1,
+    "detection_confidence": 1.0,
+    "method": "opencv_inpaint",
+    "corruption_type_used": "mask_like"
+  },
+  "metrics": {
+    "original_vs_corrupted": {
+      "psnr": 19.530472883939176,
+      "ssim": 0.8276524728468685
+    },
+    "original_vs_reconstructed": {
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215
+    },
+    "gains": {
+      "psnr_gain": 25.862032095248047,
+      "ssim_gain": 0.16541589473545304,
+      "improvement_score": 23.065899308737222
+    },
+    "improvement": true,
+    "supervised_score": {
+      "mode": "supervised",
+      "score": 78.79748631188994,
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215,
+      "gain_psnr": 25.862032095248047,
+      "gain_ssim": 0.16541589473545304,
+      "psnr_corrupted": 19.530472883939176,
+      "ssim_corrupted": 0.8276524728468685,
+      "mask_region_score": null,
+      "outside_score": null,
+      "outside_preservation": null,
+      "score_breakdown": {
+        "global_score": 78.79748631188994,
+        "ssim_component": 59.584,
+        "psnr_component": 9.079,
+        "gain_ssim_component": 4.962,
+        "gain_psnr_component": 5.172,
+        "mask_region_score": null,
+        "outside_preservation": null,
+        "outside_score": null
+      }
+    },
+    "detection_metrics": {
+      "iou": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "recoverability_status": "recoverable"
+  },
+  "corruption_classification": null,
+  "detection_confidence": 1.0,
+  "analysis": {
+    "detection_quality": "good",
+    "repair_effectiveness": "improved",
+    "score_level": "good",
+    "score": 78.79748631188994,
+    "iou": 1.0,
+    "psnr_gain": 25.862032095248047,
+    "ssim_gain": 0.16541589473545304,
+    "notes": [
+      "Le pipeline a correctement localisé et amélioré la zone corrompue.",
+      "Gain PSNR significatif : +25.9 dB.",
+      "Gain SSIM notable : +0.165."
+    ]
+  }
+}

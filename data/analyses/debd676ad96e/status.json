@@ -1,0 +1,26 @@
+{
+  "analysis_id": "debd676ad96e",
+  "status": "completed",
+  "created_at": "2026-05-11T22:36:41",
+  "updated_at": "2026-05-11T22:36:41",
+  "request": {
+    "corruption_type": "scratch_lines",
+    "severity": "light",
+    "execution_mode": "assisted",
+    "max_attempts": 2,
+    "seed": 42,
+    "filename": "test.png"
+  },
+  "files": {
+    "original": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/analysis_1778531801.png",
+    "corrupted": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/analysis_1778531801_scratch_lines_20260511_223641.png",
+    "reconstructed": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/analysis_1778531801_scratch_lines_20260511_223641_opencv_inpaint_20260511_223641.png",
+    "mask": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/analysis_1778531801_scratch_lines_20260511_223641_mask.png",
+    "report_json": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/report_0ff1545c8dbd.json",
+    "result": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/analyses/debd676ad96e/result.json"
+  },
+  "error": null,
+  "score": 78.79748631188994,
+  "selected_repair_strategy": "inpainting_r3",
+  "corruption_type": "scratch_lines"
+}

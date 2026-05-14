@@ -20,6 +20,11 @@ from app.modules.reconstruction.block_repair import repair_blocks
 from app.modules.reconstruction.deblurring import deblur
 from app.modules.reconstruction.denoising import denoise_image
 from app.modules.reconstruction.inpainting import reconstruct_with_inpaint
+try:
+    from app.modules.reconstruction.patchmatch import patchmatch_inpaint as _patchmatch_inpaint
+    _PATCHMATCH_AVAILABLE = True
+except ImportError:
+    _PATCHMATCH_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -96,21 +101,26 @@ def _build_adaptive_plan(
     # Définir l'ordre des familles selon le type de corruption
     family_priority: list[str]
     if recommended == "inpainting":
-        family_priority = ["inpainting", "composite", "hybrid", "denoise", "deblur", "block_repair"]
+        family_priority = ["inpainting", "composite", "hybrid", "patchmatch", "denoise", "deblur", "block_repair"]
     elif recommended == "denoise":
-        family_priority = ["denoise", "composite", "inpainting", "deblur", "block_repair"]
+        family_priority = ["denoise", "composite", "inpainting", "patchmatch", "deblur", "block_repair"]
     elif recommended == "deblur":
-        family_priority = ["deblur", "composite", "denoise", "inpainting", "block_repair"]
+        family_priority = ["deblur", "composite", "denoise", "inpainting", "patchmatch", "block_repair"]
     elif recommended == "block_repair":
-        family_priority = ["block_repair", "deblur", "composite", "denoise", "inpainting"]
+        family_priority = ["block_repair", "deblur", "composite", "denoise", "inpainting", "patchmatch"]
     else:  # hybrid / conservative
-        family_priority = ["hybrid", "composite", "inpainting", "denoise", "deblur", "block_repair"]
+        family_priority = ["hybrid", "composite", "inpainting", "patchmatch", "denoise", "deblur", "block_repair"]
 
     all_plans: dict[str, list[dict[str, Any]]] = {
         "inpainting": [
             {"strategy": "inpainting_r3", "family": "inpainting", "radius": max(3, base_radius)},
             {"strategy": "inpainting_r5", "family": "inpainting", "radius": max(5, base_radius + 2)},
             {"strategy": "inpainting_r7", "family": "inpainting", "radius": max(7, base_radius + 4)},
+        ],
+        "patchmatch": [
+            {"strategy": "patchmatch_p7_i5",  "family": "patchmatch", "patch_size": 7,  "iterations": 5},
+            {"strategy": "patchmatch_p9_i5",  "family": "patchmatch", "patch_size": 9,  "iterations": 5},
+            {"strategy": "patchmatch_p11_i7", "family": "patchmatch", "patch_size": 11, "iterations": 7},
         ],
         "denoise": [
             {"strategy": "denoise_median_blur",   "family": "denoise", "denoise_method": "median_blur"},
@@ -412,6 +422,20 @@ def run_repair_pipeline(
                         strategy, result_path, corrupted_image_path, orig_path,
                         extra={"family": family, "steps": plan.get("steps", [])},
                     ))
+
+            elif family == "patchmatch":
+                if mask_path_obj is None or not _PATCHMATCH_AVAILABLE:
+                    continue
+                result = _patchmatch_inpaint(
+                    corrupted_image_path, mask_path_obj,
+                    patch_size=int(plan["patch_size"]),
+                    iterations=int(plan["iterations"]),
+                )
+                candidates.append(_candidate_from_path(
+                    strategy, result["path"], corrupted_image_path, orig_path,
+                    extra={"patch_size": plan["patch_size"],
+                           "iterations": plan["iterations"], "family": family},
+                ))
 
             elif family == "inpainting":
                 if mask_path_obj is None:

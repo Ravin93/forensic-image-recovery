@@ -11,6 +11,10 @@ from app.api.routes.corruption import router as corruption_router
 from app.api.routes.reconstruction import router as reconstruction_router
 from app.api.routes.evaluation import router as evaluation_router
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.benchmark import router as benchmark_router
+from app.api.routes.audit import router as audit_router
+
+from app.core.file_cleanup import schedule_cleanup_on_startup as _sched_cleanup
 
 app = FastAPI(
     title="Forensic Image Recovery API",
@@ -23,6 +27,8 @@ app = FastAPI(
 )
 
 # Tous les routers — pipeline_router inclut maintenant /pipeline/corrupt-and-repair
+_sched_cleanup(app)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,3 +46,5 @@ app.include_router(corruption_router)
 app.include_router(reconstruction_router)
 app.include_router(evaluation_router)
 app.include_router(analysis_router)
+app.include_router(benchmark_router)
+app.include_router(audit_router)

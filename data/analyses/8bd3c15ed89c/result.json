@@ -1,0 +1,269 @@
+{
+  "original_image": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/input/analysis_1778531611.png",
+  "corrupted_image": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png",
+  "mask_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/masks/analysis_1778531611_scratch_lines_20260511_223331_mask.png",
+  "reconstructed_image": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png",
+  "selected_repair_strategy": "inpainting_r3",
+  "repair_score": 78.79748631188994,
+  "retry_count": 1,
+  "repair_candidates": [
+    {
+      "strategy": "inpainting_r3",
+      "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png",
+      "score": 78.79748631188994,
+      "mode": "supervised",
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215,
+      "gain_psnr": 25.862032095248047,
+      "gain_ssim": 0.16541589473545304,
+      "psnr_corrupted": 19.530472883939176,
+      "ssim_corrupted": 0.8276524728468685,
+      "mask_region_score": null,
+      "outside_score": null,
+      "outside_preservation": null,
+      "score_breakdown": {
+        "global_score": 78.79748631188994,
+        "ssim_component": 59.584,
+        "psnr_component": 9.079,
+        "gain_ssim_component": 4.962,
+        "gain_psnr_component": 5.172,
+        "mask_region_score": null,
+        "outside_preservation": null,
+        "outside_score": null
+      },
+      "radius": 3,
+      "family": "inpainting"
+    },
+    {
+      "strategy": "conservative",
+      "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png",
+      "score": 53.56524294759995,
+      "mode": "supervised",
+      "psnr": 19.530472883939176,
+      "ssim": 0.8276524728468685,
+      "gain_psnr": 0.0,
+      "gain_ssim": 0.0,
+      "psnr_corrupted": 19.530472883939176,
+      "ssim_corrupted": 0.8276524728468685,
+      "mask_region_score": null,
+      "outside_score": null,
+      "outside_preservation": null,
+      "score_breakdown": {
+        "global_score": 53.56524294759995,
+        "ssim_component": 49.659,
+        "psnr_component": 3.906,
+        "gain_ssim_component": 0.0,
+        "gain_psnr_component": 0.0,
+        "mask_region_score": null,
+        "outside_preservation": null,
+        "outside_score": null
+      },
+      "recommended": "inpainting",
+      "family": "conservative"
+    }
+  ],
+  "evaluation": {
+    "original_vs_corrupted": {
+      "psnr": 19.530472883939176,
+      "ssim": 0.8276524728468685
+    },
+    "original_vs_reconstructed": {
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215
+    },
+    "reconstructed": {
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215
+    },
+    "corrupted": {
+      "psnr": 19.530472883939176,
+      "ssim": 0.8276524728468685
+    },
+    "gains": {
+      "psnr_gain": 25.862032095248047,
+      "ssim_gain": 0.16541589473545304,
+      "improvement_score": 23.065899308737222
+    },
+    "improvement": true,
+    "supervised_score": {
+      "mode": "supervised",
+      "score": 78.79748631188994,
+      "psnr": 45.39250497918722,
+      "ssim": 0.9930683675823215,
+      "gain_psnr": 25.862032095248047,
+      "gain_ssim": 0.16541589473545304,
+      "psnr_corrupted": 19.530472883939176,
+      "ssim_corrupted": 0.8276524728468685,
+      "mask_region_score": null,
+      "outside_score": null,
+      "outside_preservation": null,
+      "score_breakdown": {
+        "global_score": 78.79748631188994,
+        "ssim_component": 59.584,
+        "psnr_component": 9.079,
+        "gain_ssim_component": 4.962,
+        "gain_psnr_component": 5.172,
+        "mask_region_score": null,
+        "outside_preservation": null,
+        "outside_score": null
+      }
+    }
+  },
+  "recoverability_status": "recoverable",
+  "detection_metrics": {
+    "iou": 1.0,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "corruption": {
+    "file": "analysis_1778531611_scratch_lines_20260511_223331.png",
+    "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png",
+    "image_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png",
+    "mask_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/masks/analysis_1778531611_scratch_lines_20260511_223331_mask.png",
+    "corruption_type": "scratch_lines",
+    "parameters": {
+      "count": 5,
+      "thickness": 1,
+      "angle_range": [
+        -30.0,
+        30.0
+      ],
+      "color": [
+        255,
+        255,
+        255
+      ],
+      "seed": 42
+    },
+    "status": "corrupted",
+    "source_image": "analysis_1778531611.png",
+    "randomize": true,
+    "imperfect_mask": false,
+    "supported_types": [
+      "bar",
+      "block_dropout",
+      "combined",
+      "jpeg_block_artifacts",
+      "large_deleted_square",
+      "local_blur",
+      "local_noise",
+      "mixed",
+      "multiple_bars",
+      "noise",
+      "random_holes",
+      "rectangle_mask",
+      "scratch_lines",
+      "shift_region",
+      "zone_deletion"
+    ]
+  },
+  "reconstruction": {
+    "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png",
+    "status": "reconstructed",
+    "source_image": "analysis_1778531611_scratch_lines_20260511_223331.png",
+    "selected_repair_strategy": "inpainting_r3",
+    "repair_strategy": "inpainting_r3",
+    "recommended_strategy": "inpainting",
+    "detection_confidence": 1.0,
+    "score": 78.79748631188994,
+    "candidates": [
+      {
+        "strategy": "inpainting_r3",
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png",
+        "score": 78.79748631188994,
+        "mode": "supervised",
+        "psnr": 45.39250497918722,
+        "ssim": 0.9930683675823215,
+        "gain_psnr": 25.862032095248047,
+        "gain_ssim": 0.16541589473545304,
+        "psnr_corrupted": 19.530472883939176,
+        "ssim_corrupted": 0.8276524728468685,
+        "mask_region_score": null,
+        "outside_score": null,
+        "outside_preservation": null,
+        "score_breakdown": {
+          "global_score": 78.79748631188994,
+          "ssim_component": 59.584,
+          "psnr_component": 9.079,
+          "gain_ssim_component": 4.962,
+          "gain_psnr_component": 5.172,
+          "mask_region_score": null,
+          "outside_preservation": null,
+          "outside_score": null
+        },
+        "radius": 3,
+        "family": "inpainting"
+      },
+      {
+        "strategy": "conservative",
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png",
+        "score": 53.56524294759995,
+        "mode": "supervised",
+        "psnr": 19.530472883939176,
+        "ssim": 0.8276524728468685,
+        "gain_psnr": 0.0,
+        "gain_ssim": 0.0,
+        "psnr_corrupted": 19.530472883939176,
+        "ssim_corrupted": 0.8276524728468685,
+        "mask_region_score": null,
+        "outside_score": null,
+        "outside_preservation": null,
+        "score_breakdown": {
+          "global_score": 53.56524294759995,
+          "ssim_component": 49.659,
+          "psnr_component": 3.906,
+          "gain_ssim_component": 0.0,
+          "gain_psnr_component": 0.0,
+          "mask_region_score": null,
+          "outside_preservation": null,
+          "outside_score": null
+        },
+        "recommended": "inpainting",
+        "family": "conservative"
+      }
+    ],
+    "top_candidates": {
+      "best_score": {
+        "strategy": "inpainting_r3",
+        "score": 78.79748631188994,
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png"
+      },
+      "best_visual": {
+        "strategy": "inpainting_r3",
+        "score": 78.79748631188994,
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reconstructed/analysis_1778531611_scratch_lines_20260511_223331_opencv_inpaint_20260511_223331.png"
+      },
+      "most_conservative": {
+        "strategy": "conservative",
+        "score": 53.56524294759995,
+        "path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/corrupted/analysis_1778531611_scratch_lines_20260511_223331.png"
+      }
+    },
+    "retry_count": 1,
+    "method": "opencv_inpaint",
+    "corruption_type": "mask_like"
+  },
+  "report_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/reports/report_70ca3ead9262.json",
+  "status": "completed",
+  "validation": {
+    "valid": true,
+    "reason": "Image valide",
+    "details": {
+      "width": 64,
+      "height": 64,
+      "format": "PNG",
+      "mode": "RGB"
+    }
+  },
+  "corruption_classification": null,
+  "execution_mode": "assisted",
+  "detection_mode": "basic",
+  "detected_mask_path": "/Users/ravin/Documents/ESGI/4/PA/forensic-image-recovery/data/masks/analysis_1778531611_scratch_lines_20260511_223331_mask.png",
+  "detection_confidence": 1.0,
+  "mode": {
+    "seed": 42,
+    "max_attempts": 2,
+    "corruption_level": null,
+    "corruption_profile": null
+  }
+}

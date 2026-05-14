@@ -392,8 +392,9 @@ function downloadMask() {
   a.click();
 }
 
-// ── Masque binaire ──
+// ── Masque binaire — redimensionne aux dimensions reelles de l'image ──
 function buildBinaryMaskCanvas() {
+  // Etape 1 : masque aux dimensions du canvas d'affichage
   const tmp = document.createElement('canvas');
   tmp.width = canvasMask.width;
   tmp.height = canvasMask.height;
@@ -411,6 +412,21 @@ function buildBinaryMaskCanvas() {
     }
   }
   ctx.putImageData(out, 0, 0);
+
+  // Etape 2 : redimensionner aux dimensions REELLES de l'image source
+  // pour que image et masque aient la meme taille cote serveur
+  if (imgNaturalW > 0 && imgNaturalH > 0 &&
+      (tmp.width !== imgNaturalW || tmp.height !== imgNaturalH)) {
+    const real = document.createElement('canvas');
+    real.width  = imgNaturalW;
+    real.height = imgNaturalH;
+    const rctx = real.getContext('2d');
+    // Desactiver l'antialiasing pour un masque binaire propre
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(tmp, 0, 0, imgNaturalW, imgNaturalH);
+    return real;
+  }
+
   return tmp;
 }
 
@@ -474,7 +490,7 @@ async function runRepair() {
       imageBlob = await r.blob();
     } catch(e) {
       stopLoader();
-      showError('Impossible de récupérer l'image pré-chargée.');
+      showError("Impossible de récupérer l'image pré-chargée.");
       document.getElementById('run-btn').disabled = false;
       return;
     }

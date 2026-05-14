@@ -83,7 +83,30 @@
   .metric-desc{font-size:.83rem;color:var(--text);flex:1}
   .metric-range{font-family:var(--mono);font-size:.65rem;color:var(--muted);width:80px;text-align:right}
 
-  @media(max-width:900px){
+  /* Forensics modules */
+  .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:1.5rem}
+  .module-card{background:var(--surface);border:1px solid var(--border);padding:1.5rem;position:relative;transition:border-color .2s}
+  .module-card:hover{border-color:var(--accent)}
+  .module-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--accent3)}
+  .module-tag{display:inline-block;font-family:var(--mono);font-size:.55rem;letter-spacing:.12em;padding:.2rem .5rem;text-transform:uppercase;margin-bottom:.5rem}
+  .tag-stable{background:rgba(0,224,150,.15);color:#00e096;border:1px solid #00e096}
+  .tag-optional{background:rgba(255,170,0,.15);color:#ffaa00;border:1px solid #ffaa00}
+  .tag-experimental{background:rgba(255,61,113,.15);color:#ff3d71;border:1px solid #ff3d71}
+  .module-name{font-family:var(--mono);font-size:.75rem;color:var(--accent);letter-spacing:.12em;margin-bottom:.4rem}
+  .module-path{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-bottom:.6rem}
+  .module-desc{font-size:.83rem;color:var(--text);line-height:1.55;margin-bottom:.6rem}
+  .module-fn{font-family:var(--mono);font-size:.65rem;color:var(--accent3);background:var(--surface2);padding:.4rem .6rem;line-height:1.8}
+  /* API reference */
+  .endpoint{background:var(--surface);border:1px solid var(--border);padding:1.2rem 1.5rem;margin-bottom:.8rem}
+  .endpoint-method{display:inline-block;font-family:var(--mono);font-size:.65rem;padding:.2rem .5rem;margin-right:.5rem}
+  .method-post{background:rgba(162,89,255,.2);color:#a259ff}
+  .method-get{background:rgba(0,229,255,.2);color:#00e5ff}
+  .method-delete{background:rgba(255,61,113,.2);color:#ff3d71}
+  .endpoint-path{font-family:var(--mono);font-size:.8rem;color:var(--text)}
+  .endpoint-desc{font-size:.8rem;color:var(--muted);margin:.4rem 0}
+  .endpoint-params{font-family:var(--mono);font-size:.68rem;color:var(--text);line-height:1.9;background:var(--surface2);padding:.6rem .8rem;margin-top:.5rem}
+
+  @media(max-width:900px){  @media(max-width:900px){
     main{padding:1.5rem}
     header{padding:1.5rem}
     nav{padding:0 1.5rem}
@@ -116,6 +139,8 @@
   <button class="nav-btn" onclick="show('scoring')">Scoring</button>
   <button class="nav-btn" onclick="show('modes')">Modes d'exécution</button>
   <button class="nav-btn" onclick="show('limits')">Limites</button>
+  <button class="nav-btn" onclick="show('forensic')">Modules Forensics</button>
+  <button class="nav-btn" onclick="show('api')">API Reference</button>
 </nav>
 
 <main>
@@ -552,6 +577,176 @@
       Toutes les reconstructions utilisent des algorithmes classiques (OpenCV, filtres, convolutions). Les approches deep learning (Stable Diffusion inpainting, LaMa) donneraient de meilleurs résultats sur les grandes zones mais nécessitent GPU et poids de modèle.
     </li>
   </ul>
+</section>
+
+
+<!-- ══════════════════════════════════════ MODULES FORENSICS -->
+<section id="forensic">
+  <h1>Modules <span>forensics avancés</span></h1>
+  <div class="section-sub">// 12 MODULES DE RECHERCHE — SPRINT K1 À K4</div>
+
+  <div class="module-grid">
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K8 — Stable</span></div>
+      <div class="module-name">PatchMatch Inpainting</div>
+      <div class="module-path">app/modules/reconstruction/patchmatch.py</div>
+      <div class="module-desc">Algorithme exemplar-based inspiré Barnes 2009. Remplissage progressif par patches similaires (onion-peel). Meilleur que l'inpainting OpenCV sur les grandes zones et textures répétitives. Sans GPU.</div>
+      <div class="module-fn">patchmatch_inpaint(image, mask, patch_size=7, iterations=5)<br>→ Stratégies : patchmatch_p7_i5 / p9_i5 / p11_i7</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K12 — Stable</span></div>
+      <div class="module-name">Analyse EXIF Forensique</div>
+      <div class="module-path">app/modules/metadata/exif_analyzer.py</div>
+      <div class="module-desc">Extraction complète des métadonnées EXIF. Détection de logiciels de retouche (Photoshop, GIMP, Stable Diffusion), incohérences de dates, GPS, orientation suspecte. Score de suspicion 0–1.</div>
+      <div class="module-fn">extract_exif(path) → dict<br>analyze_exif_consistency(path) → {suspicious, flags, score}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K14 — Stable</span></div>
+      <div class="module-name">Hash Perceptuel</div>
+      <div class="module-path">app/modules/similarity/perceptual_hash.py</div>
+      <div class="module-desc">dHash (difference hash) et pHash (DCT perceptuel) pour comparer des images même après compression, recadrage ou modification légère. Distance de Hamming. Sans dépendance externe.</div>
+      <div class="module-fn">compute_dhash(path) / compute_phash(path)<br>compare_images_perceptual(a, b) → {distance, similarity, label}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K17 — Stable</span></div>
+      <div class="module-name">Détection Copy-Move</div>
+      <div class="module-path">app/modules/tampering/copy_move_detector.py</div>
+      <div class="module-desc">Détecte les zones copiées-collées par feature matching ORB + BFMatcher Hamming. Génère un masque des zones suspectes et un score de confiance. Fonctionne sans GPU ni SIFT payant.</div>
+      <div class="module-fn">detect_copy_move(path, min_matches=10)<br>→ {suspicious, strong_matches, regions, mask_path, confidence}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K11 — Stable</span></div>
+      <div class="module-name">OCR sur zones reconstruites</div>
+      <div class="module-path">app/modules/ocr/text_detector.py</div>
+      <div class="module-desc">Extraction de texte avant/après reconstruction. Utilise Tesseract si disponible, EasyOCR sinon. Calcule un gain OCR (text_gain). Ne crash jamais si dépendances absentes.</div>
+      <div class="module-fn">run_ocr(path) → {text, confidence, backend}<br>compare_ocr_before_after(before, after) → {text_gain, words_before, words_after}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K19 — Stable</span></div>
+      <div class="module-name">Rapport Forensique Légal</div>
+      <div class="module-path">app/modules/reporting/legal_report.py</div>
+      <div class="module-desc">Enrichit tout rapport avec : chain of custody (SHA-256 à chaque étape), table des méthodes, disclaimer juridique, note légale prudente, certifications. forensic_mode : forensic_safe ou generative.</div>
+      <div class="module-fn">generate_legal_report(report) → JSON enrichi<br>build_chain_of_custody(orig, corr, recon, id) → [{step, sha256}]</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K13 — Stable</span></div>
+      <div class="module-name">Stéganographie LSB</div>
+      <div class="module-path">app/modules/steganalysis/lsb_analyzer.py</div>
+      <div class="module-desc">Analyse la distribution des bits de poids faible (LSB) par canal RGB. Entropie de Shannon, ratio 0/1. Score d'anomalie 0–1. Niveau de suspicion : faible / moyenne / forte.</div>
+      <div class="module-fn">analyze_lsb_distribution(path) → {channels, mean_entropy}<br>detect_lsb_anomaly(path) → {anomaly_score, suspicious, level}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K18 — Stable</span></div>
+      <div class="module-name">Bruit Résiduel / PRNU</div>
+      <div class="module-path">app/modules/noise/residual_noise.py</div>
+      <div class="module-desc">Extraction du bruit capteur par filtre bilatéral. Analyse de cohérence par blocs (détection zones retouchées à &gt;2σ). Heatmap JET. Corrélation PRNU pour identifier même appareil.</div>
+      <div class="module-fn">compute_noise_consistency(path) → {consistency, regions, heatmap}<br>compare_prnu(a, b) → {correlation, same_device}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K15 — Stable</span></div>
+      <div class="module-name">Clustering de Fragments</div>
+      <div class="module-path">app/modules/fragments/fragment_clustering.py</div>
+      <div class="module-desc">Regroupe les fragments visuels par DBSCAN sur 107 features (histogramme couleur + stats + entropie + variance). Fallback implémentation maison si sklearn absent.</div>
+      <div class="module-fn">cluster_fragments_dbscan(paths, eps=0.3)<br>→ {clusters, noise, n_clusters, coherence_score}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-optional">K10 — Optionnel</span></div>
+      <div class="module-name">Chargement RAW</div>
+      <div class="module-path">app/modules/raw/raw_loader.py</div>
+      <div class="module-desc">Chargement DNG, CR2, NEF, ARW via rawpy. Conversion en PNG RGB pour le pipeline. Extraction métadonnées (ISO, exposition, balance blancs). Module 100% optionnel sans crash.</div>
+      <div class="module-fn">load_raw_as_rgb(path) → {image, width, height}<br>save_raw_as_png(path) → PNG prêt pour le pipeline</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-experimental">K9 — Expérimental</span></div>
+      <div class="module-name">LaMa Deep Inpainting</div>
+      <div class="module-path">app/modules/ai/lama_adapter.py</div>
+      <div class="module-desc">Adaptateur LaMa (Large Mask inpainting). Active si LAMA_ENABLED=true + torch + modèle présent. Résultat marqué GÉNÉRATIF / NON PROBANT. Jamais en prod sans validation humaine.</div>
+      <div class="module-fn">run_lama_inpainting(image, mask)<br>→ {forensic_mode: "generative", warning: "NON PROBANT"}</div>
+    </div>
+    <div class="module-card">
+      <div><span class="module-tag tag-stable">K16 — Stable</span></div>
+      <div class="module-name">Timeline Forensique</div>
+      <div class="module-path">app/modules/timeline/timeline_builder.py</div>
+      <div class="module-desc">Collecte les événements d'une analyse avec timestamp ISO et elapsed_s. Reconstruit rétrospectivement depuis un rapport JSON. Génère une section HTML pour les rapports.</div>
+      <div class="module-fn">ForensicTimeline.record(event, details)<br>build_timeline_from_report(report) → {timeline, n_events, total_s}</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ API REFERENCE -->
+<section id="api">
+  <h1>API <span>Reference</span></h1>
+  <div class="section-sub">// ENDPOINTS REST DISPONIBLES — BASE URL : HTTP://LOCALHOST:8000</div>
+
+  <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.15em;margin-bottom:1rem">// PIPELINE</div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-post">POST</span><span class="endpoint-path">/pipeline/corrupt-and-repair</span></div>
+    <div class="endpoint-desc">Pipeline complet : upload → corruption → reconstruction → score → rapport</div>
+    <div class="endpoint-params">image: UploadFile (JPEG/PNG, max 20MB)<br>corruption_type: scratch_lines | zone_deletion | multiple_bars | random_holes | local_noise | large_deleted_square | block_dropout | mixed | ...<br>severity: light | medium | heavy<br>execution_mode: assisted | blind_basic | blind_advanced<br>max_attempts: int (1–20, default 8)<br>seed: int | null</div>
+  </div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-post">POST</span><span class="endpoint-path">/reconstruction/repair-with-mask</span></div>
+    <div class="endpoint-desc">Reconstruction avec masque dessiné manuellement (éditeur de masque)</div>
+    <div class="endpoint-params">image: UploadFile (JPEG/PNG)<br>mask: UploadFile (PNG blanc = zone à reconstruire)<br>max_attempts: int (1–11)</div>
+  </div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-post">POST</span><span class="endpoint-path">/reconstruction/compare-masks</span></div>
+    <div class="endpoint-desc">Compare masque utilisateur vs masque détecté automatiquement</div>
+    <div class="endpoint-params">image, user_mask: UploadFile<br>detection_mode: basic | advanced<br>max_attempts: int</div>
+  </div>
+
+  <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.15em;margin:1.5rem 0 1rem">// RAPPORTS</div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/reports/html/{report_id}</span></div>
+    <div class="endpoint-desc">Ouvre le rapport HTML dans le navigateur (self-contained, images base64)</div>
+  </div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/reports/pdf/{report_id}</span></div>
+    <div class="endpoint-desc">Télécharge le rapport PDF</div>
+  </div>
+
+  <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.15em;margin:1.5rem 0 1rem">// ANALYSES PERSISTANTES</div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-post">POST</span><span class="endpoint-path">/analysis/start</span></div>
+    <div class="endpoint-desc">Lance une analyse en arrière-plan, retourne un analysis_id immédiatement</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/analysis/{id}/status</span></div>
+    <div class="endpoint-desc">Statut : pending | running | completed | failed</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/analysis/{id}/result</span></div>
+    <div class="endpoint-desc">Résultat complet si completed (202 si en cours)</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/analysis/{id}/download</span></div>
+    <div class="endpoint-desc">PDF de l'analyse</div>
+  </div>
+
+  <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent);letter-spacing:.15em;margin:1.5rem 0 1rem">// FORENSICS &amp; AUDIT</div>
+
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/audit/logs</span></div>
+    <div class="endpoint-desc">Dernières entrées du log d'audit (request_id, ip, sha256, temps, statut)</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-post">POST</span><span class="endpoint-path">/benchmark/run</span></div>
+    <div class="endpoint-desc">Lance le benchmark sur les images de data/input/</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/benchmark/results</span></div>
+    <div class="endpoint-desc">Liste les fichiers CSV/JSON de benchmark disponibles</div>
+  </div>
+  <div class="endpoint">
+    <div><span class="endpoint-method method-get">GET</span><span class="endpoint-path">/health</span></div>
+    <div class="endpoint-desc">Health check — retourne {"status": "ok"}</div>
+  </div>
 </section>
 
 </main>
