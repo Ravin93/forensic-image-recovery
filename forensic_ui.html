@@ -5,801 +5,1022 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Forensic Image Recovery</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #111118;
-    --surface2: #1a1a24;
-    --border: #2a2a3a;
-    --accent: #00e5ff;
-    --accent2: #ff3d71;
-    --accent3: #a259ff;
-    --text: #e8e8f0;
-    --muted: #6b6b80;
-    --success: #00e096;
-    --mono: 'Space Mono', monospace;
-    --sans: 'Syne', sans-serif;
-  }
+:root {
+  --bg:       #0c0e14;
+  --surface:  #121520;
+  --surface2: #1a1e2e;
+  --border:   #252a3a;
+  --accent:   #f0a030;
+  --accent2:  #d94f4f;
+  --accent3:  #6b8cda;
+  --text:     #dde1ee;
+  --muted:    #52587a;
+  --success:  #3dba7e;
+  --warn:     #e87d20;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', system-ui, sans-serif;
+  --radius: 4px;
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* Grid scanline overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px);
-    pointer-events: none;
-    z-index: 0;
-  }
+/* ─── Header ─── */
+header {
+  height: 56px;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-shrink: 0;
+  background: var(--surface);
+}
 
-  header {
-    position: relative;
-    padding: 2rem 3rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 1;
-  }
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-right: auto;
+}
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
+.logo-mark {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--warn));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
 
-  .logo-icon {
-    width: 40px; height: 40px;
-    border: 2px solid var(--accent);
-    position: relative;
-    display: flex; align-items: center; justify-content: center;
-    animation: pulse-border 3s ease-in-out infinite;
-  }
+.logo-mark svg { display: block; }
 
-  .logo-icon::after {
-    content: '';
-    position: absolute;
-    width: 20px; height: 20px;
-    background: var(--accent);
-    opacity: 0.2;
-    animation: pulse-fill 3s ease-in-out infinite;
-  }
+.logo-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
 
-  @keyframes pulse-border { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} 50%{box-shadow:0 0 12px 2px rgba(0,229,255,0.3)} }
-  @keyframes pulse-fill   { 0%,100%{opacity:.1} 50%{opacity:.4} }
+.logo-ver {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
 
-  .logo-text { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-  .logo-sub  { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); letter-spacing: 0.2em; }
+.header-link {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: color 0.15s, border-color 0.15s;
+}
 
-  .api-status {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    display: flex; align-items: center; gap: 0.5rem;
-    color: var(--muted);
-  }
-  .api-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s;
-  }
-  .api-dot.online  { background: var(--success); box-shadow: 0 0 8px var(--success); }
-  .api-dot.offline { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+.header-link:hover { color: var(--accent); border-color: var(--accent); }
 
-  main {
-    position: relative;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 3rem;
-    z-index: 1;
-  }
+.api-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+}
 
-  .hero-line {
-    font-size: clamp(2rem, 5vw, 4rem);
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 0.5rem;
-  }
-  .hero-line span { color: var(--accent); }
-  .hero-sub {
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    margin-bottom: 3rem;
-  }
+.api-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.api-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.api-dot.offline { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
 
-  /* ── Layout 2 colonnes ── */
-  .layout {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 2rem;
-    align-items: start;
-  }
+/* ─── App layout ─── */
+.app {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  min-height: 0;
+}
 
-  /* Panel gauche */
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 2rem;
-    position: relative;
-  }
-  .panel::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--accent), var(--accent3));
-  }
+/* ─── Sidebar ─── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.25rem;
+  gap: 1.25rem;
+}
 
-  .panel-title {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    color: var(--accent);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-  }
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
 
-  /* Drop zone */
-  .dropzone {
-    border: 2px dashed var(--border);
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .dropzone:hover, .dropzone.drag-over {
-    border-color: var(--accent);
-    background: rgba(0,229,255,0.04);
-  }
-  .dropzone.has-file {
-    border-color: var(--success);
-    background: rgba(0,224,150,0.04);
-  }
-  .dropzone-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.5; }
-  .dropzone-text { font-size: 0.85rem; color: var(--muted); }
-  .dropzone-file { font-family: var(--mono); font-size: 0.75rem; color: var(--success); margin-top: 0.5rem; }
-  #file-input { display: none; }
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
-  /* Sélecteur corruption */
-  .field { margin-top: 1.5rem; }
-  .field label {
-    display: block;
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 0.5rem;
-  }
-  .field select, .field input[type=range] {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 0.6rem 0.8rem;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    appearance: none;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  .field select:focus, .field select:hover { border-color: var(--accent); outline: none; }
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
-  .corruption-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-  .corruption-btn {
-    padding: 0.5rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.15s;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .corruption-btn:hover  { border-color: var(--accent3); color: var(--text); }
-  .corruption-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+/* ─── Dropzone ─── */
+.dropzone {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
 
-  /* Sévérité */
-  .severity-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  .sev-btn {
-    flex: 1; padding: 0.4rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    cursor: pointer;
-    text-align: center;
-    text-transform: uppercase;
-    transition: all 0.15s;
-  }
-  .sev-btn.active-light  { border-color: var(--success);  color: var(--success);  background: rgba(0,224,150,0.08); }
-  .sev-btn.active-medium { border-color: #ffaa00; color: #ffaa00; background: rgba(255,170,0,0.08); }
-  .sev-btn.active-heavy  { border-color: var(--accent2); color: var(--accent2); background: rgba(255,61,113,0.08); }
+.dropzone:hover, .dropzone.drag-over {
+  border-color: var(--accent);
+  background: rgba(240,160,48,0.04);
+}
 
-  /* Bouton principal */
-  .run-btn {
-    width: 100%;
-    margin-top: 2rem;
-    padding: 1rem;
-    background: transparent;
-    border: 2px solid var(--accent);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.2s;
-  }
-  .run-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--accent);
-    transform: translateX(-100%);
-    transition: transform 0.2s;
-    z-index: -1;
-  }
-  .run-btn:hover { color: var(--bg); }
-  .run-btn:hover::before { transform: translateX(0); }
-  .run-btn:disabled {
-    border-color: var(--border);
-    color: var(--muted);
-    cursor: not-allowed;
-  }
-  .run-btn:disabled::before { display: none; }
+.dropzone.has-file {
+  border-color: var(--success);
+  border-style: solid;
+  background: rgba(61,186,126,0.04);
+}
 
-  /* Loader */
-  .loader { display: none; align-items: center; gap: 0.75rem; margin-top: 1rem; }
-  .loader.visible { display: flex; }
-  .loader-bar {
-    flex: 1; height: 2px;
-    background: var(--border);
-    position: relative;
-    overflow: hidden;
-  }
-  .loader-bar::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -50%;
-    width: 50%; height: 100%;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    animation: scan 1.2s linear infinite;
-  }
-  @keyframes scan { to { left: 150%; } }
-  .loader-text { font-family: var(--mono); font-size: 0.65rem; color: var(--accent); white-space: nowrap; }
+.dz-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+  opacity: 0.4;
+}
 
-  /* ── Colonne droite ── */
-  .results { display: flex; flex-direction: column; gap: 1.5rem; }
+.dz-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
 
-  .empty-state {
-    border: 1px dashed var(--border);
-    padding: 5rem 2rem;
-    text-align: center;
-    color: var(--muted);
-  }
-  .empty-state .es-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
-  .empty-state .es-text { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.1em; }
+.dz-hint small { display: block; font-size: 0.68rem; margin-top: 0.15rem; }
 
-  /* Images triptyque */
-  .triptych {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1rem;
-  }
-  .img-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(12px);
-    animation: fadeup 0.4s forwards;
-  }
-  .img-card:nth-child(2) { animation-delay: 0.1s; }
-  .img-card:nth-child(3) { animation-delay: 0.2s; }
-  @keyframes fadeup { to { opacity:1; transform:translateY(0); } }
+.dz-file {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--success);
+  margin-top: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .img-label {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    padding: 0.6rem 0.8rem;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 0.5rem;
-  }
-  .img-label .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-  }
-  .dot-orig  { background: var(--accent); }
-  .dot-corr  { background: var(--accent2); }
-  .dot-recon { background: var(--success); }
+#file-input { display: none; }
 
-  .img-card img {
-    width: 100%;
-    display: block;
-    image-rendering: auto;
-    min-height: 160px;
-    object-fit: cover;
-    background: var(--surface2);
-  }
-  .img-card-footer {
-    padding: 0.5rem 0.8rem;
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--muted);
-  }
+/* ─── Corruption grid ─── */
+.corr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
 
-  /* Score panel */
-  .score-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 1.5rem 2rem;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 2rem;
-    align-items: center;
-    opacity: 0;
-    animation: fadeup 0.4s 0.3s forwards;
-  }
+.corr-btn {
+  padding: 0.45rem 0.5rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  .score-big {
-    font-size: 3.5rem;
-    font-weight: 800;
-    font-family: var(--mono);
-    line-height: 1;
-  }
-  .score-big.excellent { color: var(--success); }
-  .score-big.good      { color: var(--accent); }
-  .score-big.medium    { color: #ffaa00; }
-  .score-big.poor      { color: var(--accent2); }
+.corr-btn:hover { border-color: var(--accent3); color: var(--text); }
+.corr-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(240,160,48,0.08);
+}
 
-  .score-bar-wrap { }
-  .score-bar-label {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--muted);
-    margin-bottom: 0.3rem;
-    letter-spacing: 0.1em;
-  }
-  .score-bar-track {
-    height: 4px;
-    background: var(--border);
-    position: relative;
-    overflow: hidden;
-  }
-  .score-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent3), var(--accent));
-    transition: width 0.8s cubic-bezier(.4,0,.2,1);
-    width: 0;
-  }
+/* ─── Severity ─── */
+.sev-row { display: flex; gap: 0.35rem; }
 
-  .strategy-badge {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    padding: 0.3rem 0.7rem;
-    border: 1px solid var(--accent3);
-    color: var(--accent3);
-    text-align: right;
-  }
-  .strategy-label {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    margin-bottom: 0.3rem;
-  }
+.sev-btn {
+  flex: 1;
+  padding: 0.4rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
 
-  /* Candidates table */
-  .candidates-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    opacity: 0;
-    animation: fadeup 0.4s 0.4s forwards;
-  }
-  .candidates-header {
-    padding: 0.8rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-  .candidates-table { width: 100%; border-collapse: collapse; }
-  .candidates-table th {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    padding: 0.5rem 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-    text-transform: uppercase;
-  }
-  .candidates-table td {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid rgba(42,42,58,0.5);
-    color: var(--text);
-  }
-  .candidates-table tr:last-child td { border-bottom: none; }
-  .candidates-table tr.best-row td { color: var(--accent); background: rgba(0,229,255,0.04); }
-  .score-pill {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.65rem;
-    border-radius: 2px;
-  }
-  .sp-high   { background: rgba(0,224,150,0.15); color: var(--success); }
-  .sp-mid    { background: rgba(255,170,0,0.15);  color: #ffaa00; }
-  .sp-low    { background: rgba(255,61,113,0.15); color: var(--accent2); }
+.sev-btn.sev-light  { border-color: var(--success); color: var(--success); background: rgba(61,186,126,0.08); }
+.sev-btn.sev-medium { border-color: var(--warn);    color: var(--warn);    background: rgba(232,125,32,0.08); }
+.sev-btn.sev-heavy  { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.08); }
 
-  /* Error box */
-  .error-box {
-    border: 1px solid var(--accent2);
-    padding: 1rem 1.5rem;
-    background: rgba(255,61,113,0.06);
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    color: var(--accent2);
-    animation: fadeup 0.3s forwards;
-  }
-  .error-box strong { display: block; margin-bottom: 0.3rem; letter-spacing: 0.1em; }
+/* ─── Select & range ─── */
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
 
-  /* Bouton éditeur masque */
-  .editor-bar {
-    display: flex;
-    justify-content: flex-end;
-    gap: .6rem;
-    margin-top: .5rem;
-  }
-  .editor-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    padding: .55rem 1rem;
-    background: transparent;
-    border: 1px solid var(--accent3);
-    color: var(--accent3);
-    font-family: var(--mono);
-    font-size: .7rem;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all .2s;
-    opacity: 0;
-    animation: fadeup 0.4s 0.5s forwards;
-  }
-  .editor-btn:hover { background: rgba(162,89,255,.1); }
+.field-row label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
-  /* Bouton PDF */
-  .pdf-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.2rem;
-    background: transparent;
-    border: 1px solid var(--accent3);
-    color: var(--accent3);
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-    opacity: 0;
-    animation: fadeup 0.4s 0.5s forwards;
-  }
-  .pdf-btn:hover { background: rgba(162,89,255,0.1); }
-  .pdf-bar {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 0.5rem;
-  }
+.field-row select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
 
-  /* ── Mode masque utilisateur ── */
-  .mask-mode-btn {
-    width: 100%; margin-top: 1rem;
-    padding: .7rem;
-    background: transparent;
-    border: 1px solid var(--accent2);
-    color: var(--accent2);
-    font-family: var(--mono);
-    font-size: .72rem;
-    letter-spacing: .15em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .mask-mode-btn:hover { background: rgba(255,61,113,.08); }
-  .mask-mode-btn.active { background: rgba(255,61,113,.12); }
+.field-row select:focus { outline: none; border-color: var(--accent); }
 
-  .mask-panel {
-    display: none;
-    flex-direction: column;
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-  .mask-panel.visible { display: flex; }
+.field-row input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 
-  .mask-canvas-wrap {
-    position: relative;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    overflow: hidden;
-    cursor: crosshair;
-  }
-  #mask-canvas { display: block; width: 100%; }
-  #mask-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; pointer-events: none; }
+.range-val {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--accent);
+  text-align: right;
+}
 
-  .mask-tools { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-  .mask-tool-btn {
-    padding: .35rem .7rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: .65rem;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all .15s;
-  }
-  .mask-tool-btn:hover { border-color: var(--accent2); color: var(--text); }
-  .mask-tool-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(255,61,113,.08); }
+/* ─── Run button ─── */
+.run-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #0c0e14;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
 
-  .brush-size-wrap { display: flex; align-items: center; gap: .4rem; font-family: var(--mono); font-size: .65rem; color: var(--muted); }
-  .brush-size-wrap input { width: 70px; }
+.run-btn:hover:not(:disabled) { opacity: 0.88; }
+.run-btn:active:not(:disabled) { transform: translateY(1px); }
+.run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
 
-  .mask-run-btn {
-    width: 100%; padding: .9rem;
-    background: transparent;
-    border: 2px solid var(--accent2);
-    color: var(--accent2);
-    font-family: var(--mono);
-    font-size: .8rem;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .mask-run-btn:hover { background: rgba(255,61,113,.1); }
-  .mask-run-btn:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+/* ─── Mask mode ─── */
+.mask-toggle {
+  width: 100%;
+  padding: 0.6rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.15s;
+}
 
-  /* D4 — Score breakdown jauges */
-  .breakdown-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 1.2rem 1.5rem;
-    opacity: 0;
-    animation: fadeup 0.4s 0.45s forwards;
-  }
-  .breakdown-title {
-    font-family: var(--mono);
-    font-size: .62rem;
-    color: var(--accent);
-    letter-spacing: .15em;
-    text-transform: uppercase;
-    margin-bottom: .8rem;
-  }
-  .gauge-row {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    margin-bottom: .5rem;
-  }
-  .gauge-label {
-    font-family: var(--mono);
-    font-size: .62rem;
-    color: var(--muted);
-    width: 130px;
-    flex-shrink: 0;
-  }
-  .gauge-track {
-    flex: 1;
-    height: 4px;
-    background: var(--border);
-    position: relative;
-    overflow: hidden;
-  }
-  .gauge-fill {
-    height: 100%;
-    transition: width 0.8s cubic-bezier(.4,0,.2,1);
-    width: 0;
-  }
-  .gauge-val {
-    font-family: var(--mono);
-    font-size: .6rem;
-    color: var(--text);
-    width: 36px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-  .gauge-explanation {
-    font-size: .75rem;
-    color: var(--muted);
-    margin-top: .3rem;
-    font-style: italic;
-  }
+.mask-toggle:hover { border-color: var(--accent2); color: var(--accent2); }
+.mask-toggle.active { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.06); }
 
-  @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; }
-    .triptych { grid-template-columns: 1fr; }
-    .score-panel { grid-template-columns: auto 1fr; }
-    main { padding: 1.5rem; }
-    header { padding: 1.5rem; }
-  }
+.mask-panel-inner {
+  display: none;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.mask-panel-inner.visible { display: flex; }
+
+.mask-hint {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  background: rgba(217,79,79,0.06);
+  border: 1px solid rgba(217,79,79,0.15);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.7rem;
+  line-height: 1.6;
+}
+
+.mask-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  overflow: hidden;
+  cursor: crosshair;
+  height: 180px;
+}
+
+#mask-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#mask-preview-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.mask-tools {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mtool-btn {
+  padding: 0.3rem 0.6rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.mtool-btn:hover { border-color: var(--accent2); color: var(--text); }
+.mtool-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.08); }
+
+.brush-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  flex: 1;
+}
+
+.brush-wrap input { width: 60px; accent-color: var(--accent2); }
+
+.mask-run {
+  width: 100%;
+  padding: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--accent2);
+  border-radius: var(--radius);
+  color: var(--accent2);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mask-run:hover { background: rgba(217,79,79,0.1); }
+.mask-run:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+/* ─── Loader ─── */
+.loader {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.loader.on { display: flex; }
+
+.loader-track {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-track::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes sweep { to { left: 140%; } }
+
+.loader-msg {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 130px;
+}
+
+/* ─── Workspace ─── */
+.workspace {
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ─── Empty state ─── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.empty-state .es-icon {
+  font-size: 2.5rem;
+  opacity: 0.2;
+}
+
+.empty-state .es-text {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.8;
+}
+
+/* ─── Triptych ─── */
+.triptych {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.img-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeUp 0.35s forwards;
+}
+
+.img-card:nth-child(2) { animation-delay: 0.08s; }
+.img-card:nth-child(3) { animation-delay: 0.16s; }
+
+@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+.img-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.img-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-orig  { background: var(--accent3); }
+.dot-corr  { background: var(--accent2); }
+.dot-recon { background: var(--success); }
+
+.img-card img {
+  width: 100%;
+  display: block;
+  min-height: 120px;
+  object-fit: cover;
+  background: var(--surface2);
+}
+
+.img-card-foot {
+  padding: 0.4rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+/* ─── Score panel ─── */
+.score-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+  opacity: 0;
+  animation: fadeUp 0.35s 0.25s forwards;
+}
+
+.score-ring {
+  position: relative;
+  width: 88px; height: 88px;
+  flex-shrink: 0;
+}
+
+.score-ring svg { transform: rotate(-90deg); }
+
+.score-ring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-ring-val {
+  font-family: var(--mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-ring-val.excellent { color: var(--success); }
+.score-ring-val.good      { color: var(--accent); }
+.score-ring-val.medium    { color: var(--warn); }
+.score-ring-val.poor      { color: var(--accent2); }
+
+.score-ring-sub {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.score-bar-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.2rem;
+}
+
+.score-track {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.score-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent3), var(--success));
+  transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
+  width: 0;
+}
+
+.score-detail {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.strategy-card {
+  text-align: right;
+}
+
+.strategy-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.4rem;
+}
+
+.strategy-pill {
+  display: inline-block;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--accent3);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--accent3);
+}
+
+/* ─── Breakdown ─── */
+.breakdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  opacity: 0;
+  animation: fadeUp 0.35s 0.33s forwards;
+}
+
+.breakdown-title {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.gauge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+
+.gauge-lbl {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.gauge-track {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
+  width: 0;
+}
+
+.gauge-num {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text);
+  width: 34px;
+  text-align: right;
+}
+
+.gauge-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* ─── Action bar ─── */
+.action-bar {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  opacity: 0;
+  animation: fadeUp 0.35s 0.4s forwards;
+}
+
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.act-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.act-btn.amber  { border-color: var(--accent);  color: var(--accent);  }
+.act-btn.amber:hover  { background: rgba(240,160,48,0.08); }
+.act-btn.violet { border-color: var(--accent3); color: var(--accent3); }
+.act-btn.violet:hover { background: rgba(107,140,218,0.08); }
+
+/* ─── Candidates ─── */
+.candidates {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  opacity: 0;
+  animation: fadeUp 0.35s 0.48s forwards;
+}
+
+.candidates-head {
+  padding: 0.7rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+table.cand-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cand-table th {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.45rem 1.25rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.cand-table td {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.45rem 1.25rem;
+  border-bottom: 1px solid rgba(37,42,58,0.6);
+  color: var(--text);
+}
+
+.cand-table tr:last-child td { border-bottom: none; }
+
+.cand-table tr.best td {
+  color: var(--accent);
+  background: rgba(240,160,48,0.04);
+}
+
+.score-tag {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+}
+
+.st-hi  { background: rgba(61,186,126,0.15); color: var(--success); }
+.st-mid { background: rgba(232,125,32,0.15);  color: var(--warn); }
+.st-lo  { background: rgba(217,79,79,0.15);   color: var(--accent2); }
+
+/* ─── Error ─── */
+.error-box {
+  border: 1px solid var(--accent2);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  background: rgba(217,79,79,0.06);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent2);
+  animation: fadeUp 0.3s forwards;
+  line-height: 1.6;
+}
+
+.error-box strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+}
+
+/* ─── Separator ─── */
+.sep {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  .triptych { grid-template-columns: 1fr; }
+  .score-panel { grid-template-columns: auto 1fr; }
+}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">
-    <div class="logo-icon">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
-        <circle cx="9" cy="9" r="2" fill="#00e5ff" opacity="0.6"/>
+    <div class="logo-mark">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="#0c0e14" stroke-width="1.5" fill="none"/>
+        <circle cx="8" cy="8" r="2.5" fill="#0c0e14"/>
       </svg>
     </div>
     <div>
-      <div class="logo-text">Forensic Recovery</div>
-      <div class="logo-sub">Image Reconstruction System</div>
+      <div class="logo-name">Forensic Recovery</div>
+      <div class="logo-ver">Image Reconstruction System</div>
     </div>
   </div>
-  <a href="mask_editor.html" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.4rem .8rem;transition:all .2s" onmouseover="this.style.color='#a259ff';this.style.borderColor='#a259ff'" onmouseout="this.style.color='';this.style.borderColor=''">✏ Éditeur masque</a>
-  <a href="technique.html" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.4rem .8rem;transition:all .2s" onmouseover="this.style.color='#00e5ff';this.style.borderColor='#00e5ff'" onmouseout="this.style.color='';this.style.borderColor=''">Doc technique →</a>
-  <div class="api-status">
+  <a href="Mask_editor.html" class="header-link">✏ Éditeur de masque</a>
+  <a href="technique.html"   class="header-link">Doc technique →</a>
+  <div class="api-badge">
     <div class="api-dot" id="api-dot"></div>
-    <span id="api-label">Connexion API…</span>
+    <span id="api-label">Connexion…</span>
   </div>
 </header>
 
-<main>
-  <div class="hero-line">Reconstruct.<span> Recover.</span> Analyze.</div>
-  <div class="hero-sub">// FORENSIC IMAGE PIPELINE — MULTI-STRATEGY RECONSTRUCTION</div>
+<div class="app">
+  <!-- ─── Sidebar ─── -->
+  <aside class="sidebar">
 
-  <div class="layout">
-    <!-- Panneau de contrôle -->
-    <div class="panel">
-      <div class="panel-title">// Paramètres</div>
-
-      <!-- Drop zone -->
+    <div class="sidebar-section">
+      <div class="section-label">Image source</div>
       <div class="dropzone" id="dropzone">
-        <div class="dropzone-icon">⬡</div>
-        <div class="dropzone-text">Déposer une image ici<br><small>JPEG ou PNG</small></div>
-        <div class="dropzone-file" id="file-name"></div>
+        <span class="dz-icon">⬡</span>
+        <div class="dz-hint">
+          Déposer une image ici
+          <small>JPEG ou PNG acceptés</small>
+        </div>
+        <div class="dz-file" id="file-name"></div>
         <input type="file" id="file-input" accept="image/jpeg,image/png">
       </div>
+    </div>
 
-      <!-- Type de corruption -->
-      <div class="field">
-        <label>Type de dégradation</label>
-        <div class="corruption-grid" id="corruption-grid">
-          <button class="corruption-btn active" data-val="scratch_lines">Rayures</button>
-          <button class="corruption-btn" data-val="large_deleted_square">Carré supprimé</button>
-          <button class="corruption-btn" data-val="multiple_bars">Barres</button>
-          <button class="corruption-btn" data-val="random_holes">Trous aléatoires</button>
-          <button class="corruption-btn" data-val="local_noise">Bruit local</button>
-          <button class="corruption-btn" data-val="zone_deletion">Zone supprimée</button>
-          <button class="corruption-btn" data-val="block_dropout">Blocs</button>
-          <button class="corruption-btn" data-val="mixed">Mixte</button>
-        </div>
+    <div class="sidebar-section">
+      <div class="section-label">Type de dégradation</div>
+      <div class="corr-grid" id="corr-grid">
+        <button class="corr-btn active" data-val="scratch_lines">Rayures</button>
+        <button class="corr-btn" data-val="large_deleted_square">Carré supprimé</button>
+        <button class="corr-btn" data-val="multiple_bars">Barres multiples</button>
+        <button class="corr-btn" data-val="random_holes">Trous aléatoires</button>
+        <button class="corr-btn" data-val="local_noise">Bruit local</button>
+        <button class="corr-btn" data-val="zone_deletion">Zone supprimée</button>
+        <button class="corr-btn" data-val="block_dropout">Blocs abandonnés</button>
+        <button class="corr-btn" data-val="mixed">Mixte</button>
       </div>
+    </div>
 
-      <!-- Sévérité -->
-      <div class="field">
-        <label>Sévérité</label>
-        <div class="severity-row">
-          <button class="sev-btn" data-sev="light">Light</button>
-          <button class="sev-btn active-medium" data-sev="medium">Medium</button>
-          <button class="sev-btn" data-sev="heavy">Heavy</button>
-        </div>
+    <div class="sidebar-section">
+      <div class="section-label">Sévérité</div>
+      <div class="sev-row" id="sev-row">
+        <button class="sev-btn"         data-sev="light">Light</button>
+        <button class="sev-btn sev-medium" data-sev="medium">Medium</button>
+        <button class="sev-btn"         data-sev="heavy">Heavy</button>
       </div>
+    </div>
 
-      <!-- Mode exécution -->
-      <div class="field">
+    <div class="sidebar-section">
+      <div class="field-row">
         <label>Mode d'exécution</label>
         <select id="exec-mode">
-          <option value="assisted">Assisté (masque exact)</option>
+          <option value="assisted">Assisté — masque exact</option>
           <option value="blind_basic">Aveugle basique</option>
           <option value="blind_advanced">Aveugle avancé</option>
         </select>
       </div>
 
-      <!-- Max attempts -->
-      <div class="field">
-        <label>Stratégies testées : <span id="attempts-val">8</span></label>
+      <div class="field-row">
+        <label>Stratégies testées — <span class="range-val" id="att-val">8</span></label>
         <input type="range" id="max-attempts" min="2" max="11" value="8"
-               oninput="document.getElementById('attempts-val').textContent=this.value">
+               oninput="document.getElementById('att-val').textContent=this.value">
       </div>
+    </div>
 
-      <button class="run-btn" id="run-btn" disabled>
-        ▶ Lancer l'analyse
+    <hr class="sep">
+
+    <button class="run-btn" id="run-btn" disabled>▶ Lancer l'analyse</button>
+
+    <hr class="sep">
+
+    <div class="sidebar-section">
+      <button class="mask-toggle" id="mask-toggle" onclick="toggleMaskMode()">
+        <span>✏</span>
+        <span>Dessiner un masque manuellement</span>
       </button>
 
-      <!-- Mode masque utilisateur C1 -->
-      <button class="mask-mode-btn" id="mask-mode-btn" onclick="toggleMaskMode()">
-        ✏ Dessiner un masque manuellement
-      </button>
-
-      <div class="mask-panel" id="mask-panel">
-        <div style="font-family:var(--mono);font-size:.65rem;color:var(--accent2);letter-spacing:.1em">
-          Dessinez la zone à reconstruire directement sur l'image
+      <div class="mask-panel-inner" id="mask-panel">
+        <div class="mask-hint">
+          Peignez en blanc la zone corrompue à reconstruire, puis lancez.
         </div>
-        <div class="mask-canvas-wrap" id="mask-canvas-wrap" style="height:200px">
-          <img id="mask-preview-img" alt="aperçu image">
+        <div class="mask-canvas-wrap" id="mask-canvas-wrap">
+          <img id="mask-preview-img" alt="">
           <canvas id="mask-canvas" width="400" height="200"></canvas>
         </div>
         <div class="mask-tools">
-          <button class="mask-tool-btn active" id="btn-brush" onclick="setTool('brush')">Pinceau</button>
-          <button class="mask-tool-btn" id="btn-eraser" onclick="setTool('eraser')">Gomme</button>
-          <button class="mask-tool-btn" onclick="clearMask()">Reset</button>
-          <div class="brush-size-wrap">
-            Taille <input type="range" id="brush-size" min="5" max="60" value="20"
-              oninput="document.getElementById('brush-val').textContent=this.value">
-            <span id="brush-val">20</span>px
+          <button class="mtool-btn active" id="mbtn-brush"  onclick="setTool('brush')">Pinceau</button>
+          <button class="mtool-btn"        id="mbtn-eraser" onclick="setTool('eraser')">Gomme</button>
+          <button class="mtool-btn"                         onclick="clearMask()">Reset</button>
+          <div class="brush-wrap">
+            <span>Taille</span>
+            <input type="range" id="brush-sz" min="5" max="60" value="20"
+                   oninput="document.getElementById('bsz-val').textContent=this.value">
+            <span id="bsz-val">20</span>px
           </div>
         </div>
-        <button class="mask-run-btn" id="mask-run-btn" onclick="runWithMask()" disabled>
+        <button class="mask-run" id="mask-run-btn" disabled onclick="runWithMask()">
           ▶ Reconstruire avec ce masque
         </button>
       </div>
-
-      <div class="loader" id="loader">
-        <div class="loader-bar"></div>
-        <div class="loader-text" id="loader-text">Initialisation…</div>
-      </div>
     </div>
 
-    <!-- Zone résultats -->
-    <div class="results" id="results">
-      <div class="empty-state" id="empty-state">
-        <div class="es-icon">◈</div>
-        <div class="es-text">Aucune analyse en cours<br>Sélectionner une image pour commencer</div>
+    <div class="loader" id="loader">
+      <div class="loader-track"></div>
+      <div class="loader-msg" id="loader-msg">Initialisation…</div>
+    </div>
+
+  </aside>
+
+  <!-- ─── Workspace ─── -->
+  <main class="workspace" id="workspace">
+    <div class="empty-state" id="empty-state">
+      <div class="es-icon">◈</div>
+      <div class="es-text">
+        Aucune analyse en cours<br>
+        Sélectionnez une image pour commencer
       </div>
     </div>
-  </div>
-</main>
+  </main>
+</div>
 
 <script>
 const API = 'http://localhost:8000';
 
-// ── État ──
 let selectedFile = null;
 let selectedCorruption = 'scratch_lines';
 let selectedSeverity = 'medium';
 
-// ── API health check ──
+/* ── API health ── */
 async function checkApi() {
   try {
     const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
@@ -814,16 +1035,15 @@ async function checkApi() {
 checkApi();
 setInterval(checkApi, 10000);
 
-// ── Drop zone ──
-const dropzone = document.getElementById('dropzone');
+/* ── Drop zone ── */
+const dropzone  = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
 
-dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('click',    () => fileInput.click());
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('dragleave',  () => dropzone.classList.remove('drag-over'));
 dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('drag-over');
+  e.preventDefault(); dropzone.classList.remove('drag-over');
   const f = e.dataTransfer.files[0];
   if (f) setFile(f);
 });
@@ -834,286 +1054,410 @@ function setFile(f) {
   dropzone.classList.add('has-file');
   document.getElementById('file-name').textContent = f.name;
   document.getElementById('run-btn').disabled = false;
+  document.getElementById('mask-run-btn').disabled = false;
+
+  /* Prévisualisation dans le canvas masque */
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('mask-preview-img');
+    img.src = e.target.result;
+    const pic = new Image();
+    pic.onload = () => { maskNatW = pic.width; maskNatH = pic.height; };
+    pic.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
 }
 
-// ── Sélecteurs corruption ──
-document.getElementById('corruption-grid').addEventListener('click', e => {
-  const btn = e.target.closest('.corruption-btn');
+/* ── Corruption ── */
+document.getElementById('corr-grid').addEventListener('click', e => {
+  const btn = e.target.closest('.corr-btn');
   if (!btn) return;
-  document.querySelectorAll('.corruption-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.corr-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   selectedCorruption = btn.dataset.val;
 });
 
-// ── Sévérité ──
+/* ── Severity ── */
 document.querySelectorAll('.sev-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.sev-btn').forEach(b => b.className = 'sev-btn');
+    document.querySelectorAll('.sev-btn').forEach(b => {
+      b.className = 'sev-btn';
+    });
     selectedSeverity = btn.dataset.sev;
-    btn.classList.add(`active-${selectedSeverity}`);
+    btn.classList.add(`sev-${selectedSeverity}`);
   });
 });
 
-// ── Loader messages ──
-const loaderMessages = [
-  'Chargement de l\'image…',
-  'Application de la dégradation…',
-  'Génération du masque…',
-  'Tentative inpainting r3…',
-  'Tentative inpainting r5…',
-  'Débruitage médian…',
-  'Débruitage bilatéral…',
-  'Défloutage…',
-  'Réparation de blocs…',
-  'Reconstruction hybride…',
-  'Calcul des scores PSNR/SSIM…',
-  'Sélection du meilleur candidat…',
-  'Génération du rapport…',
+/* ── Loader ── */
+const LOADER_MSGS = [
+  'Chargement de l\'image…', 'Application de la dégradation…', 'Génération du masque…',
+  'Inpainting r3…', 'Inpainting r5…', 'Débruitage médian…', 'Bilatéral…',
+  'Défloutage…', 'Réparation de blocs…', 'Reconstruction hybride…',
+  'Calcul PSNR/SSIM…', 'Sélection du meilleur candidat…', 'Génération du rapport…',
 ];
-let loaderInterval = null;
-let loaderIdx = 0;
+let ldrIdx = 0, ldrTimer = null;
 
-function startLoader() {
-  loaderIdx = 0;
-  const el = document.getElementById('loader-text');
-  el.textContent = loaderMessages[0];
-  document.getElementById('loader').classList.add('visible');
-  loaderInterval = setInterval(() => {
-    loaderIdx = (loaderIdx + 1) % loaderMessages.length;
-    el.textContent = loaderMessages[loaderIdx];
+function startLoader(msgs) {
+  const list = msgs || LOADER_MSGS;
+  ldrIdx = 0;
+  const el = document.getElementById('loader-msg');
+  el.textContent = list[0];
+  document.getElementById('loader').classList.add('on');
+  ldrTimer = setInterval(() => {
+    ldrIdx = (ldrIdx + 1) % list.length;
+    el.textContent = list[ldrIdx];
   }, 900);
 }
 
 function stopLoader() {
-  clearInterval(loaderInterval);
-  document.getElementById('loader').classList.remove('visible');
+  clearInterval(ldrTimer);
+  document.getElementById('loader').classList.remove('on');
 }
 
-// ── Requête API ──
+/* ── Run pipeline ── */
 document.getElementById('run-btn').addEventListener('click', async () => {
   if (!selectedFile) return;
-
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   startLoader();
-  clearResults();
+  setWorkspace(`<div class="empty-state"><div class="es-icon">◈</div><div class="es-text">Analyse en cours…</div></div>`);
 
-  const formData = new FormData();
-  formData.append('image', selectedFile);
-  formData.append('corruption_type', selectedCorruption);
-  formData.append('severity', selectedSeverity);
-  formData.append('execution_mode', document.getElementById('exec-mode').value);
-  formData.append('max_attempts', document.getElementById('max-attempts').value);
-  formData.append('seed', '42');
+  const fd = new FormData();
+  fd.append('image', selectedFile);
+  fd.append('corruption_type', selectedCorruption);
+  fd.append('severity', selectedSeverity);
+  fd.append('execution_mode', document.getElementById('exec-mode').value);
+  fd.append('max_attempts', document.getElementById('max-attempts').value);
+  fd.append('seed', '42');
 
   try {
-    const resp = await fetch(`${API}/pipeline/corrupt-and-repair`, {
-      method: 'POST',
-      body: formData,
-    });
-
+    const resp = await fetch(`${API}/pipeline/corrupt-and-repair`, { method: 'POST', body: fd });
     stopLoader();
-
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
       showError(err.detail || 'Erreur inconnue');
     } else {
-      const data = await resp.json();
-      renderResults(data);
+      renderResults(await resp.json());
     }
   } catch (e) {
     stopLoader();
-    showError('Impossible de contacter l\'API. Vérifiez que le serveur tourne sur ' + API);
+    showError('Impossible de contacter l\'API sur ' + API);
   } finally {
     btn.disabled = false;
   }
 });
 
-function clearResults() {
-  const r = document.getElementById('results');
-  r.innerHTML = '<div class="empty-state" id="empty-state"><div class="es-icon">◈</div><div class="es-text">Analyse en cours…</div></div>';
+/* ── Helpers ── */
+function setWorkspace(html) {
+  document.getElementById('workspace').innerHTML = html;
 }
 
 function showError(msg) {
-  document.getElementById('results').innerHTML = `
-    <div class="error-box">
-      <strong>// ERREUR</strong>
-      ${escHtml(msg)}
-    </div>`;
+  setWorkspace(`<div class="error-box"><strong>// ERREUR</strong>${esc(msg)}</div>`);
 }
 
-function escHtml(s) {
+function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function scoreClass(s) {
-  if (s >= 80) return 'excellent';
-  if (s >= 60) return 'good';
-  if (s >= 40) return 'medium';
+function scoreClass(v) {
+  if (v >= 80) return 'excellent';
+  if (v >= 60) return 'good';
+  if (v >= 40) return 'medium';
   return 'poor';
 }
-function pillClass(s) {
-  if (s >= 70) return 'sp-high';
-  if (s >= 40) return 'sp-mid';
-  return 'sp-low';
+
+function tagClass(v) {
+  if (v >= 70) return 'st-hi';
+  if (v >= 40) return 'st-mid';
+  return 'st-lo';
 }
 
-// ── Rendu résultats ──
+/* ── Score ring SVG ── */
+function renderRing(score, cls) {
+  const pct = Math.min(100, Math.max(0, score));
+  const r = 36, cx = 44, cy = 44;
+  const circ = 2 * Math.PI * r;
+  const dash = (pct / 100) * circ;
+  const color = { excellent: 'var(--success)', good: 'var(--accent)', medium: 'var(--warn)', poor: 'var(--accent2)' }[cls];
+  return `
+  <div class="score-ring">
+    <svg width="88" height="88" viewBox="0 0 88 88">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+        stroke="${color}" stroke-width="5"
+        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+        stroke-linecap="round"/>
+    </svg>
+    <div class="score-ring-num">
+      <span class="score-ring-val ${cls}">${score.toFixed(1)}</span>
+      <span class="score-ring-sub">/100</span>
+    </div>
+  </div>`;
+}
+
+/* ── Breakdown gauges ── */
 function renderBreakdown(data) {
-  // Récupère le score_breakdown du meilleur candidat
   const best = (data.candidates || []).find(c => c.strategy === data.selected_repair_strategy) || {};
-  const bd = best.score_breakdown || null;
+  const bd = best.score_breakdown;
   if (!bd) return '';
 
   const mode = best.mode || 'supervised';
   const isSup = mode === 'supervised';
 
   const gauges = isSup ? [
-    { label: 'SSIM global',      val: bd.ssim_component,      max: 60,  color: 'var(--accent)' },
-    { label: 'PSNR global',      val: bd.psnr_component,      max: 20,  color: 'var(--accent3)' },
-    { label: 'Gain SSIM',        val: bd.gain_ssim_component,  max: 30, color: 'var(--success)' },
-    { label: 'Gain PSNR',        val: bd.gain_psnr_component,  max: 20, color: 'var(--success)' },
-    { label: 'Zone reconstruite',val: bd.mask_region_score,    max: 100, color: '#ffaa00' },
-    { label: 'Hors zone',        val: bd.outside_score,        max: 100, color: 'var(--accent)' },
+    { label: 'SSIM global',       val: bd.ssim_component,      max: 60,  color: 'var(--accent3)' },
+    { label: 'PSNR global',       val: bd.psnr_component,      max: 20,  color: 'var(--accent)' },
+    { label: 'Gain SSIM',         val: bd.gain_ssim_component, max: 30,  color: 'var(--success)' },
+    { label: 'Gain PSNR',         val: bd.gain_psnr_component, max: 20,  color: 'var(--success)' },
+    { label: 'Zone reconstruite', val: bd.mask_region_score,   max: 100, color: 'var(--warn)' },
+    { label: 'Hors zone',         val: bd.outside_score,       max: 100, color: 'var(--accent3)' },
   ] : [
-    { label: 'Netteté',          val: bd.sharpness_component,  max: 25,  color: 'var(--accent)' },
-    { label: 'Bruit résiduel',   val: bd.noise_component,      max: 20,  color: 'var(--accent3)' },
-    { label: 'Contours',         val: bd.edge_component,       max: 20,  color: 'var(--success)' },
-    { label: 'Cohérence couleur',val: bd.color_component,      max: 15,  color: '#ffaa00' },
-    { label: 'Entropie locale',  val: bd.entropy_component,    max: 10,  color: 'var(--accent3)' },
-    { label: 'Artefacts blocs',  val: bd.artifact_component,   max: 10,  color: 'var(--muted)' },
+    { label: 'Netteté',           val: bd.sharpness_component, max: 25,  color: 'var(--accent)' },
+    { label: 'Bruit résiduel',    val: bd.noise_component,     max: 20,  color: 'var(--accent3)' },
+    { label: 'Contours',          val: bd.edge_component,      max: 20,  color: 'var(--success)' },
+    { label: 'Cohérence couleur', val: bd.color_component,     max: 15,  color: 'var(--warn)' },
+    { label: 'Entropie locale',   val: bd.entropy_component,   max: 10,  color: 'var(--accent3)' },
+    { label: 'Artefacts blocs',   val: bd.artifact_component,  max: 10,  color: 'var(--muted)' },
   ];
 
-  const rows = gauges.map(g => {
-    if (g.val == null) return '';
+  const rows = gauges.filter(g => g.val != null).map(g => {
     const pct = Math.min(100, Math.max(0, (g.val / g.max) * 100));
     return `<div class="gauge-row">
-      <div class="gauge-label">${g.label}</div>
+      <div class="gauge-lbl">${g.label}</div>
       <div class="gauge-track">
         <div class="gauge-fill" style="width:${pct}%;background:${g.color}"></div>
       </div>
-      <div class="gauge-val">${parseFloat(g.val).toFixed(1)}</div>
+      <div class="gauge-num">${parseFloat(g.val).toFixed(1)}</div>
     </div>`;
   }).join('');
 
-  const explanation = isSup
-    ? `Mode <strong style="color:var(--success)">supervisé</strong> — original disponible, métriques PSNR/SSIM exactes.`
-    : `Mode <strong style="color:#ffaa00">aveugle</strong> — score heuristique sans original.`;
+  const note = isSup
+    ? `Mode <strong style="color:var(--success)">supervisé</strong> — PSNR/SSIM exacts, original disponible.`
+    : `Mode <strong style="color:var(--warn)">aveugle</strong> — score heuristique sans original.`;
 
-  return `<div class="breakdown-panel">
-    <div class="breakdown-title">// Décomposition du score (${mode})</div>
+  return `<div class="breakdown">
+    <div class="breakdown-title">// Score détaillé (${mode})</div>
     ${rows}
-    <div class="gauge-explanation">${explanation}</div>
+    <div class="gauge-note">${note}</div>
   </div>`;
 }
 
+/* ── Render results ── */
 function renderResults(data) {
-  const score     = parseFloat(data.score || 0).toFixed(1);
-  const strategy  = data.selected_repair_strategy || '—';
-  const retries   = data.retry_count ?? 0;
-  const candidates = data.candidates || [];
-  // Extraire le run_id depuis le report_path (ex: report_abc123.json)
+  const score    = parseFloat(data.score || 0);
+  const strategy = data.selected_repair_strategy || '—';
+  const retries  = data.retry_count ?? 0;
+  const cands    = data.candidates || [];
   const reportPath = data.report_path || '';
-  const runIdMatch = reportPath.match(/report_([a-f0-9]+)\.json/);
-  const runId = runIdMatch ? runIdMatch[1] : null;
+  const runIdM = reportPath.match(/report_([a-f0-9]+)\.json/);
+  const runId = runIdM ? runIdM[1] : null;
 
-  // Récupérer les chemins d'images via l'API /files/serve ou directement
   const origUrl  = `${API}/files/serve?path=${encodeURIComponent(data.original_image)}`;
   const corrUrl  = `${API}/files/serve?path=${encodeURIComponent(data.corrupted_image)}`;
   const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
+  const sc = scoreClass(score);
 
-  const sc = scoreClass(parseFloat(score));
-
-  // Triptyque
   const triptych = `
   <div class="triptych">
     <div class="img-card">
-      <div class="img-label"><span class="dot dot-orig"></span>Originale</div>
-      <img src="${origUrl}" alt="Originale" onerror="this.style.opacity=0.3;this.alt='Image non disponible'">
-      <div class="img-card-footer">Source uploadée</div>
+      <div class="img-card-head"><span class="img-dot dot-orig"></span>Originale</div>
+      <img src="${origUrl}" alt="Originale" onerror="this.style.opacity=0.2">
+      <div class="img-card-foot">Image uploadée</div>
     </div>
     <div class="img-card">
-      <div class="img-label"><span class="dot dot-corr"></span>Corrompue</div>
-      <img src="${corrUrl}" alt="Corrompue" onerror="this.style.opacity=0.3">
-      <div class="img-card-footer">${escHtml(data.corruption_type)} · ${escHtml(selectedSeverity)}</div>
+      <div class="img-card-head"><span class="img-dot dot-corr"></span>Corrompue</div>
+      <img src="${corrUrl}" alt="Corrompue" onerror="this.style.opacity=0.2">
+      <div class="img-card-foot">${esc(data.corruption_type)} · ${esc(selectedSeverity)}</div>
     </div>
     <div class="img-card">
-      <div class="img-label"><span class="dot dot-recon"></span>Reconstruite</div>
-      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=0.3">
-      <div class="img-card-footer">Meilleure stratégie</div>
+      <div class="img-card-head"><span class="img-dot dot-recon"></span>Reconstruite</div>
+      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=0.2">
+      <div class="img-card-foot">Meilleure stratégie</div>
     </div>
   </div>`;
 
-  // Score panel
   const scorePanel = `
   <div class="score-panel">
-    <div>
-      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);letter-spacing:.15em;margin-bottom:.3rem">SCORE GLOBAL</div>
-      <div class="score-big ${sc}">${score}<span style="font-size:1.5rem;opacity:.5">/100</span></div>
-    </div>
-    <div>
-      <div class="score-bar-label">Qualité de reconstruction</div>
-      <div class="score-bar-track">
-        <div class="score-bar-fill" id="score-fill"></div>
+    ${renderRing(score, sc)}
+    <div class="score-meta">
+      <div>
+        <div class="score-bar-label">Qualité de reconstruction</div>
+        <div class="score-track"><div class="score-fill" id="score-fill"></div></div>
       </div>
-      <div style="margin-top:.8rem;font-family:var(--mono);font-size:.65rem;color:var(--muted)">
-        ${retries} stratégie(s) testée(s)
-      </div>
+      <div class="score-detail">${retries} stratégie(s) testée(s)</div>
     </div>
-    <div style="text-align:right">
+    <div class="strategy-card">
       <div class="strategy-label">Stratégie sélectionnée</div>
-      <div class="strategy-badge">${escHtml(strategy)}</div>
+      <div class="strategy-pill">${esc(strategy)}</div>
     </div>
   </div>`;
 
-  // Tableau candidats
-  const rows = candidates.map(c => {
+  const breakdown = renderBreakdown(data);
+
+  const editorUrl = `Mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
+  const actionBar = `<div class="action-bar">
+    <a class="act-btn violet" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
+    ${runId ? `<a class="act-btn amber" href="${API}/reports/pdf/${runId}"  target="_blank" download>↓ PDF</a>` : ''}
+    ${runId ? `<a class="act-btn violet" href="${API}/reports/html/${runId}" target="_blank">⊞ HTML</a>` : ''}
+  </div>`;
+
+  const candRows = cands.map(c => {
     const isBest = c.strategy === strategy;
-    const sc2 = parseFloat(c.score || 0).toFixed(1);
+    const s = parseFloat(c.score || 0).toFixed(1);
     const psnr = c.psnr != null ? parseFloat(c.psnr).toFixed(1) + ' dB' : '—';
     const ssim = c.ssim != null ? parseFloat(c.ssim).toFixed(3) : '—';
-    return `<tr class="${isBest ? 'best-row' : ''}">
-      <td>${isBest ? '▶ ' : ''}${escHtml(c.strategy)}</td>
-      <td><span class="score-pill ${pillClass(parseFloat(sc2))}">${sc2}</span></td>
+    return `<tr class="${isBest ? 'best' : ''}">
+      <td>${isBest ? '▶ ' : ''}${esc(c.strategy)}</td>
+      <td><span class="score-tag ${tagClass(parseFloat(s))}">${s}</span></td>
       <td>${psnr}</td>
       <td>${ssim}</td>
       <td style="color:var(--muted)">${c.mode || '—'}</td>
     </tr>`;
   }).join('');
 
-  const candidatesPanel = `
-  <div class="candidates-panel">
-    <div class="candidates-header">// Candidats de reconstruction (${candidates.length})</div>
-    <table class="candidates-table">
-      <thead>
-        <tr>
-          <th>Stratégie</th><th>Score</th><th>PSNR</th><th>SSIM</th><th>Mode</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
+  const candidates = `
+  <div class="candidates">
+    <div class="candidates-head">// Candidats de reconstruction (${cands.length})</div>
+    <table class="cand-table">
+      <thead><tr>
+        <th>Stratégie</th><th>Score</th><th>PSNR</th><th>SSIM</th><th>Mode</th>
+      </tr></thead>
+      <tbody>${candRows}</tbody>
     </table>
   </div>`;
 
-  const corruptedEncoded = encodeURIComponent(data.corrupted_image);
-  const editorUrl = `mask_editor.html?corrupted_path=${corruptedEncoded}`;
+  setWorkspace(triptych + scorePanel + breakdown + actionBar + candidates);
 
-  const actionBar = `<div class="editor-bar">
-    <a class="editor-btn" href="${editorUrl}" target="_blank">
-      ✏ Ouvrir dans l'éditeur de masque
-    </a>
-    ${runId ? `<a class="pdf-btn" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
-    ${runId ? `<a class="pdf-btn" href="${API}/reports/html/${runId}" target="_blank" style="border-color:#a259ff;color:#a259ff">↓ HTML</a>` : ''}
-  </div>`;
-  const breakdownPanel = renderBreakdown(data);
-  document.getElementById('results').innerHTML = triptych + scorePanel + breakdownPanel + actionBar + candidatesPanel;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const fill = document.getElementById('score-fill');
+    if (fill) fill.style.width = Math.min(100, score) + '%';
+  }));
+}
 
-  // Animer la barre de score après injection
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const fill = document.getElementById('score-fill');
-      if (fill) fill.style.width = score + '%';
-    });
-  });
+/* ── Mask mode ── */
+let maskNatW = 0, maskNatH = 0;
+let maskTool = 'brush';
+let maskPainting = false;
+
+function toggleMaskMode() {
+  const panel = document.getElementById('mask-panel');
+  const btn   = document.getElementById('mask-toggle');
+  const show  = !panel.classList.contains('visible');
+  panel.classList.toggle('visible', show);
+  btn.classList.toggle('active', show);
+}
+
+const maskCanvas = document.getElementById('mask-canvas');
+const maskCtx    = maskCanvas.getContext('2d');
+
+maskCanvas.addEventListener('mousedown',  e => { maskPainting = true; maskDraw(e); });
+maskCanvas.addEventListener('mousemove',  maskDraw);
+maskCanvas.addEventListener('mouseup',    () => { maskPainting = false; });
+maskCanvas.addEventListener('mouseleave', () => { maskPainting = false; });
+maskCanvas.addEventListener('touchstart', e => { maskPainting = true; maskDraw(e); }, { passive: false });
+maskCanvas.addEventListener('touchmove',  maskDraw, { passive: false });
+maskCanvas.addEventListener('touchend',   () => { maskPainting = false; });
+
+function maskGetPos(e) {
+  const r = maskCanvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return {
+    x: (t.clientX - r.left) * (maskCanvas.width  / r.width),
+    y: (t.clientY - r.top)  * (maskCanvas.height / r.height),
+  };
+}
+
+function maskDraw(e) {
+  if (!maskPainting) return;
+  e.preventDefault();
+  const { x, y } = maskGetPos(e);
+  const sz = parseInt(document.getElementById('brush-sz').value);
+  maskCtx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
+  maskCtx.fillStyle = 'rgba(255,255,255,0.5)';
+  maskCtx.beginPath();
+  maskCtx.arc(x, y, sz / 2, 0, Math.PI * 2);
+  maskCtx.fill();
+}
+
+function setTool(t) {
+  maskTool = t;
+  document.getElementById('mbtn-brush').classList.toggle('active', t === 'brush');
+  document.getElementById('mbtn-eraser').classList.toggle('active', t === 'eraser');
+}
+
+function clearMask() {
+  maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+}
+
+/* Masque binaire aux dimensions réelles de l'image */
+function buildBinaryMask() {
+  const tmp = document.createElement('canvas');
+  tmp.width  = maskCanvas.width;
+  tmp.height = maskCanvas.height;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  const src = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+  const dst = ctx.getImageData(0, 0, tmp.width, tmp.height);
+  for (let i = 0; i < src.data.length; i += 4) {
+    if (src.data[i + 3] > 10) {
+      dst.data[i] = 255; dst.data[i+1] = 255; dst.data[i+2] = 255; dst.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(dst, 0, 0);
+
+  if (maskNatW > 0 && maskNatH > 0 && (tmp.width !== maskNatW || tmp.height !== maskNatH)) {
+    const real = document.createElement('canvas');
+    real.width  = maskNatW;
+    real.height = maskNatH;
+    const rctx = real.getContext('2d');
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(tmp, 0, 0, maskNatW, maskNatH);
+    return real;
+  }
+  return tmp;
+}
+
+const MASK_MSGS = [
+  'Préparation du masque…', 'Envoi au serveur…', 'Inpainting r3…',
+  'Inpainting r5…', 'Débruitage médian…', 'Bilatéral…',
+  'Reconstruction hybride…', 'Calcul des scores…', 'Sélection…',
+];
+
+async function runWithMask() {
+  if (!selectedFile) return;
+  const pixels = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
+  let white = 0;
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 10) white++;
+  if (white === 0) { alert('Le masque est vide — peignez la zone à reconstruire.'); return; }
+
+  const btn = document.getElementById('mask-run-btn');
+  btn.disabled = true;
+  startLoader(MASK_MSGS);
+
+  const maskBlob = await new Promise(res => buildBinaryMask().toBlob(res, 'image/png'));
+  const fd = new FormData();
+  fd.append('image', selectedFile, selectedFile.name);
+  fd.append('mask',  maskBlob, 'mask.png');
+  fd.append('max_attempts', document.getElementById('max-attempts').value);
+
+  try {
+    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, { method: 'POST', body: fd });
+    stopLoader();
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      showError(err.detail || 'Erreur inconnue');
+    } else {
+      renderResults(await resp.json());
+    }
+  } catch (e) {
+    stopLoader();
+    showError('Impossible de contacter l\'API sur ' + API);
+  } finally {
+    btn.disabled = false;
+  }
 }
 </script>
 </body>

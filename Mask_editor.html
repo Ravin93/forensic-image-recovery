@@ -4,180 +4,592 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Forensic Recovery — Éditeur de masque</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#0a0a0f;--surface:#111118;--surface2:#1a1a24;
-    --border:#2a2a3a;--accent:#00e5ff;--accent2:#ff3d71;
-    --accent3:#a259ff;--text:#e8e8f0;--muted:#6b6b80;
-    --success:#00e096;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
-  body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,.015) 2px,rgba(0,229,255,.015) 4px);pointer-events:none;z-index:0}
+:root {
+  --bg:       #0c0e14;
+  --surface:  #121520;
+  --surface2: #1a1e2e;
+  --border:   #252a3a;
+  --accent:   #f0a030;
+  --accent2:  #d94f4f;
+  --accent3:  #6b8cda;
+  --text:     #dde1ee;
+  --muted:    #52587a;
+  --success:  #3dba7e;
+  --warn:     #e87d20;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', system-ui, sans-serif;
+  --radius: 4px;
+}
 
-  header{position:relative;padding:1.2rem 2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:1}
-  .logo{display:flex;align-items:center;gap:.8rem}
-  .logo-icon{width:32px;height:32px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center}
-  .logo-text{font-size:.9rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
-  .logo-sub{font-family:var(--mono);font-size:.55rem;color:var(--accent);letter-spacing:.2em}
-  .back-btn{font-family:var(--mono);font-size:.65rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:.35rem .7rem;transition:all .2s}
-  .back-btn:hover{color:var(--accent);border-color:var(--accent)}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  main{position:relative;z-index:1;display:grid;grid-template-columns:260px 1fr 300px;gap:1.5rem;padding:1.5rem;height:calc(100vh - 60px)}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  /* ── Panneau gauche : outils ── */
-  .tools-panel{background:var(--surface);border:1px solid var(--border);padding:1.2rem;display:flex;flex-direction:column;gap:1rem;overflow-y:auto}
-  .tools-panel::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent3));margin:-1.2rem -1.2rem 0;margin-bottom:1rem}
+/* ─── Header ─── */
+header {
+  height: 52px;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  background: var(--surface);
+}
 
-  .panel-title{font-family:var(--mono);font-size:.62rem;color:var(--accent);letter-spacing:.2em;text-transform:uppercase}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-right: auto;
+}
 
-  /* Drop zone */
-  .dropzone{border:2px dashed var(--border);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all .2s}
-  .dropzone:hover,.dropzone.over{border-color:var(--accent);background:rgba(0,229,255,.04)}
-  .dropzone.loaded{border-color:var(--success);background:rgba(0,224,150,.04)}
-  .dz-icon{font-size:1.5rem;opacity:.4;margin-bottom:.4rem}
-  .dz-text{font-size:.78rem;color:var(--muted)}
-  .dz-file{font-family:var(--mono);font-size:.65rem;color:var(--success);margin-top:.3rem}
-  #file-input{display:none}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), var(--warn));
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
 
-  /* Outils dessin */
-  .tool-row{display:flex;gap:.5rem}
-  .tool-btn{flex:1;padding:.5rem;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;text-align:center;transition:all .15s;text-transform:uppercase}
-  .tool-btn:hover{border-color:var(--accent3);color:var(--text)}
-  .tool-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.08)}
+.logo-mark svg { display: block; }
+.logo-name { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; }
+.logo-sub  { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); }
 
-  /* Taille pinceau */
-  .field label{display:block;font-family:var(--mono);font-size:.6rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem}
-  .field input[type=range]{width:100%;accent-color:var(--accent)}
-  .brush-preview{width:100%;height:32px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-top:.3rem}
+.back-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: color 0.15s, border-color 0.15s;
+}
 
-  /* Opacity overlay */
-  .field input[type=number]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:.4rem .6rem;font-family:var(--mono);font-size:.75rem}
+.back-btn:hover { color: var(--accent); border-color: var(--accent); }
 
-  /* Boutons action */
-  .action-btn{width:100%;padding:.7rem;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:all .2s}
-  .action-btn:hover{border-color:var(--accent3);color:var(--accent3)}
-  .action-btn.danger{border-color:transparent}
-  .action-btn.danger:hover{border-color:var(--accent2);color:var(--accent2)}
-  .run-btn{width:100%;padding:.9rem;background:transparent;border:2px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;position:relative;overflow:hidden;transition:all .2s}
-  .run-btn::before{content:'';position:absolute;inset:0;background:var(--accent);transform:translateX(-100%);transition:transform .2s;z-index:-1}
-  .run-btn:hover{color:var(--bg)}.run-btn:hover::before{transform:translateX(0)}
-  .run-btn:disabled{border-color:var(--border);color:var(--muted);cursor:not-allowed}
-  .run-btn:disabled::before{display:none}
+/* ─── Main 3-column layout ─── */
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  min-height: 0;
+}
 
-  /* ── Canvas zone ── */
-  .canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);overflow:hidden}
-  .canvas-label{position:absolute;top:.6rem;left:.8rem;font-family:var(--mono);font-size:.6rem;color:var(--muted);letter-spacing:.1em;z-index:2;pointer-events:none}
-  #canvas-image{position:absolute;image-rendering:auto}
-  #canvas-mask{position:absolute;cursor:crosshair}
-  .empty-canvas{color:var(--muted);font-family:var(--mono);font-size:.75rem;text-align:center;pointer-events:none}
+/* ─── Tools panel ─── */
+.tools-panel {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
 
-  /* Loader */
-  .loader{display:none;align-items:center;gap:.5rem;margin-top:.5rem}
-  .loader.on{display:flex}
-  .loader-bar{flex:1;height:2px;background:var(--border);position:relative;overflow:hidden}
-  .loader-bar::after{content:'';position:absolute;top:0;left:-50%;width:50%;height:100%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scan 1.2s linear infinite}
-  @keyframes scan{to{left:150%}}
-  .loader-text{font-family:var(--mono);font-size:.6rem;color:var(--accent);white-space:nowrap}
+.panel-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--accent);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 
-  /* ── Panneau droit : résultats ── */
-  .results-panel{background:var(--surface);border:1px solid var(--border);padding:1.2rem;display:flex;flex-direction:column;gap:1rem;overflow-y:auto}
-  .results-panel::before{content:'';display:block;height:2px;background:linear-gradient(90deg,var(--accent3),var(--success));margin:-1.2rem -1.2rem 0;margin-bottom:1rem}
+.panel-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
-  .result-img-wrap{border:1px solid var(--border);overflow:hidden}
-  .result-img-label{font-family:var(--mono);font-size:.58rem;color:var(--muted);padding:.4rem .6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.4rem;letter-spacing:.1em;text-transform:uppercase}
-  .result-img-label .dot{width:6px;height:6px;border-radius:50%}
-  .result-img-wrap img{width:100%;display:block;min-height:80px;background:var(--surface2);object-fit:cover}
+/* ─── Dropzone ─── */
+.dropzone {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
 
-  .score-display{background:var(--surface2);border:1px solid var(--border);padding:1rem;text-align:center}
-  .score-val{font-family:var(--mono);font-size:1.8rem;font-weight:700}
-  .score-label{font-family:var(--mono);font-size:.6rem;color:var(--muted);letter-spacing:.12em;margin-top:.2rem}
-  .strategy-badge{font-family:var(--mono);font-size:.62rem;color:var(--accent3);border:1px solid var(--accent3);padding:.25rem .5rem;display:inline-block;margin-top:.4rem}
+.dropzone:hover, .dropzone.over {
+  border-color: var(--accent);
+  background: rgba(240,160,48,0.04);
+}
 
-  .empty-results{color:var(--muted);font-family:var(--mono);font-size:.7rem;text-align:center;padding:2rem 0;line-height:1.8}
+.dropzone.loaded {
+  border-color: var(--success);
+  border-style: solid;
+  background: rgba(61,186,126,0.04);
+}
 
-  .error-box{border:1px solid var(--accent2);padding:.8rem 1rem;background:rgba(255,61,113,.06);font-family:var(--mono);font-size:.7rem;color:var(--accent2);line-height:1.5}
+.dz-icon { font-size: 1.2rem; opacity: 0.3; display: block; margin-bottom: 0.35rem; }
+.dz-text { font-size: 0.73rem; color: var(--muted); line-height: 1.5; }
+.dz-file { font-family: var(--mono); font-size: 0.62rem; color: var(--success); margin-top: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#file-input { display: none; }
 
-  @media(max-width:1100px){main{grid-template-columns:220px 1fr 240px}}
-  @media(max-width:800px){
-    main{grid-template-columns:1fr;grid-template-rows:auto 400px auto;height:auto}
-    .canvas-wrap{height:400px}
-  }
+/* ─── Workflow hint ─── */
+.workflow-hint {
+  background: rgba(107,140,218,0.06);
+  border: 1px solid rgba(107,140,218,0.15);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.workflow-hint span { color: var(--accent3); }
+
+/* ─── Tool buttons ─── */
+.tool-row { display: flex; gap: 0.35rem; }
+
+.tool-btn {
+  flex: 1;
+  padding: 0.45rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover { border-color: var(--accent3); color: var(--text); }
+.tool-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,48,0.08); }
+
+/* ─── Field ─── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.field label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.field input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+.field input[type=number] {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  width: 100%;
+}
+
+/* Brush preview */
+.brush-preview {
+  width: 100%;
+  height: 28px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* ─── Action buttons ─── */
+.act-row { display: flex; gap: 0.35rem; }
+
+.act-btn {
+  flex: 1;
+  padding: 0.45rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.act-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+.act-btn.danger:hover { border-color: var(--accent2); color: var(--accent2); }
+
+.act-full {
+  width: 100%;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.act-full:hover { border-color: var(--accent3); color: var(--accent3); }
+
+/* ─── Run button ─── */
+.run-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #0c0e14;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.run-btn:hover:not(:disabled) { opacity: 0.88; }
+.run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+/* ─── Loader ─── */
+.loader { display: none; align-items: center; gap: 0.5rem; }
+.loader.on { display: flex; }
+
+.loader-track {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loader-track::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes sweep { to { left: 140%; } }
+
+.loader-msg {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+/* ─── Canvas zone ─── */
+.canvas-zone {
+  position: relative;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas-label {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.8rem;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.canvas-label mark {
+  background: rgba(255,255,255,0.15);
+  color: var(--text);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+#canvas-image {
+  position: absolute;
+  image-rendering: auto;
+}
+
+#canvas-mask {
+  position: absolute;
+  cursor: crosshair;
+}
+
+.empty-canvas {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 2;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Results panel ─── */
+.results-panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.result-img {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.result-img-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--surface2);
+}
+
+.rdot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+.result-img img {
+  width: 100%;
+  display: block;
+  min-height: 70px;
+  object-fit: cover;
+  background: var(--surface2);
+}
+
+/* ─── Score card ─── */
+.score-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  text-align: center;
+}
+
+.score-val {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-lbl {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-top: 0.2rem;
+}
+
+.strategy-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--accent3);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent3);
+}
+
+.score-detail {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+/* ─── Candidates ─── */
+.cands-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+
+.cand-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cand-row:last-child { border-bottom: none; }
+.cand-row.best { color: var(--accent); }
+.cand-score {
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+/* ─── Error ─── */
+.error-box {
+  border: 1px solid var(--accent2);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: rgba(217,79,79,0.06);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--accent2);
+  line-height: 1.6;
+}
+
+.empty-results {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 2rem 0;
+  line-height: 2;
+}
+
+/* ─── Sep ─── */
+hr { border: none; border-top: 1px solid var(--border); }
+
+/* ─── Responsive ─── */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 200px 1fr 240px; }
+}
+
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: auto 400px auto; }
+  body { overflow: auto; }
+  .canvas-zone { height: 400px; }
+}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">
-    <div class="logo-icon">
-      <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-        <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
-        <circle cx="9" cy="9" r="2" fill="#00e5ff" opacity=".6"/>
+    <div class="logo-mark">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="#0c0e14" stroke-width="1.5" fill="none"/>
+        <circle cx="8" cy="8" r="2.5" fill="#0c0e14"/>
       </svg>
     </div>
     <div>
-      <div class="logo-text">Forensic Recovery</div>
+      <div class="logo-name">Forensic Recovery</div>
       <div class="logo-sub">Éditeur de masque</div>
     </div>
   </div>
   <a href="forensic_ui.html" class="back-btn">← Interface principale</a>
 </header>
 
-<main>
-  <!-- ── Outils ── -->
+<div class="layout">
+
+  <!-- ─── Outils ─── -->
   <div class="tools-panel">
-    <div class="panel-title">// Image source</div>
+
+    <div class="panel-title">Image source</div>
 
     <div class="dropzone" id="dropzone">
-      <div class="dz-icon">⬡</div>
-      <div class="dz-text">Déposer une image <strong style="color:var(--accent2)">corrompue</strong><br><small>JPEG ou PNG — depuis data/corrupted/</small></div>
+      <span class="dz-icon">⬡</span>
+      <div class="dz-text">Déposer une image <strong style="color:var(--accent2)">corrompue</strong><br><small>JPEG ou PNG</small></div>
       <div class="dz-file" id="dz-file"></div>
       <input type="file" id="file-input" accept="image/jpeg,image/png">
     </div>
 
-    <div style="background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.2);padding:.6rem .8rem;font-family:var(--mono);font-size:.62rem;line-height:1.6;color:var(--muted)">
-      <span style="color:var(--accent)">// Workflow</span><br>
-      1. Charger une image <span style="color:var(--accent2)">corrompue</span><br>
+    <div class="workflow-hint">
+      <span>// Workflow</span><br>
+      1. Charger une image corrompue<br>
       2. Peindre la zone abîmée<br>
       3. Lancer la reconstruction
     </div>
-    <div class="panel-title" style="margin-top:.5rem">// Outils de dessin</div>
+
+    <hr>
+
+    <div class="panel-title">Outils de dessin</div>
 
     <div class="tool-row">
-      <button class="tool-btn active" id="btn-brush" onclick="setTool('brush')">✏ Pinceau</button>
-      <button class="tool-btn" id="btn-eraser" onclick="setTool('eraser')">◻ Gomme</button>
+      <button class="tool-btn active" id="btn-brush"  onclick="setTool('brush')">✏ Pinceau</button>
+      <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">◻ Gomme</button>
     </div>
 
     <div class="field">
       <label>Taille : <span id="size-val">20</span>px</label>
-      <input type="range" id="brush-size" min="2" max="80" value="20" oninput="updateSize(this.value)">
+      <input type="range" id="brush-size" min="2" max="80" value="20"
+             oninput="updateSize(this.value)">
       <div class="brush-preview" id="brush-preview">
-        <div style="border-radius:50%;background:rgba(0,229,255,.4);pointer-events:none" id="brush-dot"></div>
+        <div id="brush-dot" style="border-radius:50%;background:rgba(240,160,48,0.4);pointer-events:none"></div>
       </div>
     </div>
 
     <div class="field">
-      <label>Opacité overlay masque</label>
-      <input type="range" id="overlay-opacity" min="10" max="90" value="50"
-             oninput="setOverlayOpacity(this.value)">
+      <label>Opacité overlay</label>
+      <input type="range" id="overlay-op" min="10" max="90" value="50"
+             oninput="setOverlay(this.value)">
     </div>
 
-    <div class="tool-row">
-      <button class="action-btn" onclick="resetMask()">↺ Reset masque</button>
-      <button class="action-btn" onclick="invertMask()">⇄ Inverser</button>
-    </div>
-    <button class="action-btn" onclick="downloadMask()">↓ Télécharger masque</button>
+    <hr>
 
-    <div class="panel-title" style="margin-top:.5rem">// Reconstruction</div>
+    <div class="act-row">
+      <button class="act-btn" onclick="resetMask()">↺ Reset</button>
+      <button class="act-btn" onclick="invertMask()">⇄ Inverser</button>
+    </div>
+    <button class="act-full" onclick="downloadMask()">↓ Télécharger masque PNG</button>
+
+    <hr>
+
+    <div class="panel-title">Reconstruction</div>
 
     <div class="field">
-      <label>Stratégies testées</label>
+      <label>Stratégies testées : <span id="att-val">8</span></label>
       <input type="range" id="max-attempts" min="2" max="11" value="8"
              oninput="document.getElementById('att-val').textContent=this.value">
-      <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.3rem">
-        <span id="att-val">8</span> stratégies
-      </div>
     </div>
 
     <button class="run-btn" id="run-btn" disabled onclick="runRepair()">
@@ -185,55 +597,64 @@
     </button>
 
     <div class="loader" id="loader">
-      <div class="loader-bar"></div>
-      <div class="loader-text" id="loader-msg">Reconstruction…</div>
+      <div class="loader-track"></div>
+      <div class="loader-msg" id="loader-msg">Reconstruction…</div>
     </div>
+
   </div>
 
-  <!-- ── Canvas ── -->
-  <div class="canvas-wrap" id="canvas-wrap">
-    <div class="canvas-label">// Dessinez en <span style="color:white;background:rgba(255,255,255,.15);padding:0 4px">BLANC</span> la zone corrompue à reconstruire</div>
-    <div class="empty-canvas" id="empty-canvas" style="line-height:2">
+  <!-- ─── Canvas ─── -->
+  <div class="canvas-zone" id="canvas-zone">
+    <div class="canvas-label">Dessinez en <mark>BLANC</mark> la zone corrompue</div>
+    <div class="empty-canvas" id="empty-canvas">
       ◈<br>
-      Chargez une image <span style="color:var(--accent2)">corrompue</span><br>
-      <span style="font-size:.65rem;color:var(--muted)">Conseil : depuis data/corrupted/ après une analyse</span>
+      Chargez une image corrompue<br>
+      <span style="font-size:.6rem;color:var(--muted)">Depuis data/corrupted/ après une analyse</span>
     </div>
     <canvas id="canvas-image"></canvas>
     <canvas id="canvas-mask"></canvas>
   </div>
 
-  <!-- ── Résultats ── -->
+  <!-- ─── Résultats ─── -->
   <div class="results-panel">
-    <div class="panel-title">// Résultats</div>
+    <div class="panel-title">Résultats</div>
     <div class="empty-results" id="empty-results">
-      ◈<br>Dessinez un masque<br>puis lancez la reconstruction
+      ◈<br>
+      Dessinez un masque<br>
+      puis lancez la reconstruction
     </div>
-    <div id="results-content" style="display:none;display:flex;flex-direction:column;gap:.8rem"></div>
+    <div id="results-content"></div>
   </div>
-</main>
+
+</div>
 
 <script>
 const API = 'http://localhost:8000';
+
 let tool = 'brush';
 let painting = false;
-let imgFile = null;
-let imgNaturalW = 0, imgNaturalH = 0;
+let imgFile  = null;
+let imgNatW  = 0, imgNatH = 0;
 let overlayOpacity = 0.5;
-let preloadedCorruptedPath = null;  // chemin serveur de l'image pré-chargée
+let preloadedPath  = null;
 
 const canvasImg  = document.getElementById('canvas-image');
 const canvasMask = document.getElementById('canvas-mask');
 const ctxImg     = canvasImg.getContext('2d');
 const ctxMask    = canvasMask.getContext('2d');
-const wrap       = document.getElementById('canvas-wrap');
+const zone       = document.getElementById('canvas-zone');
 
-// ── Drop zone ──
-const dropzone = document.getElementById('dropzone');
+/* ── Drop zone ── */
+const dropzone  = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
-dropzone.addEventListener('click', () => fileInput.click());
+
+dropzone.addEventListener('click',    () => fileInput.click());
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
-dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('over'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+dropzone.addEventListener('dragleave',  () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
 fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
 
 function loadFile(f) {
@@ -245,90 +666,81 @@ function loadFile(f) {
   document.getElementById('run-btn').disabled = false;
 
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = ev => {
     const img = new Image();
     img.onload = () => {
-      imgNaturalW = img.width;
-      imgNaturalH = img.height;
+      imgNatW = img.width;
+      imgNatH = img.height;
       resizeCanvases();
       ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
       resetMask();
     };
-    img.src = e.target.result;
+    img.src = ev.target.result;
   };
   reader.readAsDataURL(f);
 }
 
 function resizeCanvases() {
-  const ww = wrap.clientWidth  - 4;
-  const wh = wrap.clientHeight - 4;
-  const ratio = Math.min(ww / imgNaturalW, wh / imgNaturalH);
-  const cw = Math.floor(imgNaturalW * ratio);
-  const ch = Math.floor(imgNaturalH * ratio);
+  const ww = zone.clientWidth  - 4;
+  const wh = zone.clientHeight - 4;
+  const ratio = Math.min(ww / imgNatW, wh / imgNatH);
+  const cw = Math.floor(imgNatW * ratio);
+  const ch = Math.floor(imgNatH * ratio);
 
   [canvasImg, canvasMask].forEach(c => {
     c.width  = cw; c.height = ch;
     c.style.width  = cw + 'px';
     c.style.height = ch + 'px';
-    c.style.left = ((ww - cw) / 2 + 2) + 'px';
-    c.style.top  = ((wh - ch) / 2 + 2) + 'px';
+    c.style.left   = ((ww - cw) / 2 + 2) + 'px';
+    c.style.top    = ((wh - ch) / 2 + 2) + 'px';
   });
 }
 
-// ── Pré-chargement depuis URL param (venant du front principal) ──
-function loadFromUrl() {
+/* ── Pré-chargement depuis URL param ── */
+(function loadFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const path = params.get('corrupted_path');
   if (!path) return;
 
-  preloadedCorruptedPath = path;
+  preloadedPath = path;
   const url = `${API}/files/serve?path=${encodeURIComponent(path)}`;
-
-  // Afficher l'info dans la drop zone
   const fname = path.split('/').pop();
+
   document.getElementById('dz-file').textContent = '⬡ ' + fname + ' (pré-chargée)';
-  document.getElementById('dropzone').classList.add('loaded');
+  dropzone.classList.add('loaded');
   document.getElementById('empty-canvas').style.display = 'none';
   document.getElementById('run-btn').disabled = false;
 
-  // Charger l'image dans le canvas via l'API
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = () => {
-    imgNaturalW = img.width;
-    imgNaturalH = img.height;
+    imgNatW = img.width;
+    imgNatH = img.height;
     resizeCanvases();
     ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
     resetMask();
-
-    // Créer un File-like pour l'envoi — on fetchera le blob à l'envoi
     imgFile = { _preloaded: true, name: fname };
   };
   img.onerror = () => {
-    document.getElementById('dz-file').textContent = 'Erreur de chargement — chargez manuellement';
+    document.getElementById('dz-file').textContent = 'Erreur — chargez manuellement';
   };
   img.src = url;
-}
-loadFromUrl();
+})();
 
-// ── Dessin ──
+/* ── Dessin ── */
 function setTool(t) {
   tool = t;
-  document.getElementById('btn-brush').classList.toggle('active', t === 'brush');
+  document.getElementById('btn-brush').classList.toggle('active',  t === 'brush');
   document.getElementById('btn-eraser').classList.toggle('active', t === 'eraser');
   canvasMask.style.cursor = t === 'eraser' ? 'cell' : 'crosshair';
 }
 
-function getBrushSize() {
-  return parseInt(document.getElementById('brush-size').value);
-}
-
 function getPos(e) {
   const r = canvasMask.getBoundingClientRect();
-  const touch = e.touches ? e.touches[0] : e;
+  const t = e.touches ? e.touches[0] : e;
   return {
-    x: (touch.clientX - r.left) * (canvasMask.width  / r.width),
-    y: (touch.clientY - r.top)  * (canvasMask.height / r.height),
+    x: (t.clientX - r.left) * (canvasMask.width  / r.width),
+    y: (t.clientY - r.top)  * (canvasMask.height / r.height),
   };
 }
 
@@ -336,8 +748,7 @@ function draw(e) {
   if (!painting) return;
   e.preventDefault();
   const { x, y } = getPos(e);
-  const sz = getBrushSize();
-
+  const sz = parseInt(document.getElementById('brush-size').value);
   ctxMask.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
   ctxMask.fillStyle = `rgba(255,255,255,${overlayOpacity})`;
   ctxMask.beginPath();
@@ -345,24 +756,24 @@ function draw(e) {
   ctxMask.fill();
 }
 
-canvasMask.addEventListener('mousedown',  e => { painting = true; draw(e); });
+canvasMask.addEventListener('mousedown',  e => { painting = true;  draw(e); });
 canvasMask.addEventListener('mousemove',  draw);
 canvasMask.addEventListener('mouseup',    () => { painting = false; });
 canvasMask.addEventListener('mouseleave', () => { painting = false; });
-canvasMask.addEventListener('touchstart', e => { painting = true; draw(e); }, { passive: false });
+canvasMask.addEventListener('touchstart', e => { painting = true;  draw(e); }, { passive: false });
 canvasMask.addEventListener('touchmove',  draw, { passive: false });
 canvasMask.addEventListener('touchend',   () => { painting = false; });
 
 function updateSize(v) {
   document.getElementById('size-val').textContent = v;
   const dot = document.getElementById('brush-dot');
-  const px = Math.min(parseInt(v), 56);
-  dot.style.width = px + 'px';
+  const px  = Math.min(parseInt(v), 52);
+  dot.style.width  = px + 'px';
   dot.style.height = px + 'px';
 }
 updateSize(20);
 
-function setOverlayOpacity(v) {
+function setOverlay(v) {
   overlayOpacity = v / 100;
 }
 
@@ -372,13 +783,14 @@ function resetMask() {
 
 function invertMask() {
   const id = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
-  const d = id.data;
+  const d  = id.data;
   for (let i = 0; i < d.length; i += 4) {
     const painted = d[i+3] > 10;
     if (painted) {
       d[i+3] = 0;
     } else {
-      d[i] = 255; d[i+1] = 255; d[i+2] = 255; d[i+3] = Math.round(overlayOpacity * 255);
+      d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+      d[i+3] = Math.round(overlayOpacity * 255);
     }
   }
   ctxMask.putImageData(id, 0, 0);
@@ -386,166 +798,147 @@ function invertMask() {
 
 function downloadMask() {
   const bin = buildBinaryMaskCanvas();
-  const a = document.createElement('a');
+  const a   = document.createElement('a');
   a.download = 'mask.png';
   a.href = bin.toDataURL('image/png');
   a.click();
 }
 
-// ── Masque binaire — redimensionne aux dimensions reelles de l'image ──
+/* ── Masque binaire aux dimensions réelles de l'image ── */
 function buildBinaryMaskCanvas() {
-  // Etape 1 : masque aux dimensions du canvas d'affichage
+  /* Étape 1 : masque aux dimensions du canvas d'affichage */
   const tmp = document.createElement('canvas');
-  tmp.width = canvasMask.width;
+  tmp.width  = canvasMask.width;
   tmp.height = canvasMask.height;
-  const ctx = tmp.getContext('2d');
+  const ctx  = tmp.getContext('2d');
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, tmp.width, tmp.height);
 
-  const id = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
-  const d = id.data;
-  const out = ctx.getImageData(0, 0, tmp.width, tmp.height);
-  const od = out.data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i+3] > 10) {
-      od[i] = 255; od[i+1] = 255; od[i+2] = 255; od[i+3] = 255;
+  const src = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
+  const dst = ctx.getImageData(0, 0, tmp.width, tmp.height);
+  for (let i = 0; i < src.data.length; i += 4) {
+    if (src.data[i+3] > 10) {
+      dst.data[i] = 255; dst.data[i+1] = 255; dst.data[i+2] = 255; dst.data[i+3] = 255;
     }
   }
-  ctx.putImageData(out, 0, 0);
+  ctx.putImageData(dst, 0, 0);
 
-  // Etape 2 : redimensionner aux dimensions REELLES de l'image source
-  // pour que image et masque aient la meme taille cote serveur
-  if (imgNaturalW > 0 && imgNaturalH > 0 &&
-      (tmp.width !== imgNaturalW || tmp.height !== imgNaturalH)) {
+  /* Étape 2 : redimensionner aux dimensions RÉELLES (imgNatW × imgNatH)
+     imageSmoothingEnabled = false → masque binaire propre sans anti-aliasing
+     Évite l'erreur OpenCV "Sizes of input arguments do not match" */
+  if (imgNatW > 0 && imgNatH > 0 && (tmp.width !== imgNatW || tmp.height !== imgNatH)) {
     const real = document.createElement('canvas');
-    real.width  = imgNaturalW;
-    real.height = imgNaturalH;
-    const rctx = real.getContext('2d');
-    // Desactiver l'antialiasing pour un masque binaire propre
+    real.width  = imgNatW;
+    real.height = imgNatH;
+    const rctx  = real.getContext('2d');
     rctx.imageSmoothingEnabled = false;
-    rctx.drawImage(tmp, 0, 0, imgNaturalW, imgNaturalH);
+    rctx.drawImage(tmp, 0, 0, imgNatW, imgNatH);
     return real;
   }
 
   return tmp;
 }
 
-// ── Reconstruction ──
+/* ── Loader ── */
 const LOADER_MSGS = [
-  'Préparation du masque…',
-  'Envoi au serveur…',
-  'Inpainting r3…',
-  'Inpainting r5…',
-  'Inpainting r7…',
-  'Débruitage médian…',
-  'Débruitage bilatéral…',
-  'Reconstruction hybride…',
-  'Calcul des scores…',
-  'Sélection du meilleur candidat…',
+  'Préparation du masque…', 'Envoi au serveur…', 'Inpainting r3…', 'Inpainting r5…',
+  'Inpainting r7…', 'Débruitage médian…', 'Bilatéral…', 'Hybride…',
+  'Calcul des scores…', 'Sélection du meilleur…',
 ];
-let loaderIdx = 0, loaderInt = null;
+let ldrIdx = 0, ldrTimer = null;
 
 function startLoader() {
-  loaderIdx = 0;
+  ldrIdx = 0;
   document.getElementById('loader-msg').textContent = LOADER_MSGS[0];
   document.getElementById('loader').classList.add('on');
-  loaderInt = setInterval(() => {
-    loaderIdx = (loaderIdx + 1) % LOADER_MSGS.length;
-    document.getElementById('loader-msg').textContent = LOADER_MSGS[loaderIdx];
+  ldrTimer = setInterval(() => {
+    ldrIdx = (ldrIdx + 1) % LOADER_MSGS.length;
+    document.getElementById('loader-msg').textContent = LOADER_MSGS[ldrIdx];
   }, 800);
 }
+
 function stopLoader() {
-  clearInterval(loaderInt);
+  clearInterval(ldrTimer);
   document.getElementById('loader').classList.remove('on');
 }
 
+/* ── Reconstruction ── */
 async function runRepair() {
   if (!imgFile) return;
 
-  const binCanvas = buildBinaryMaskCanvas();
-  const totalWhite = (() => {
-    const d = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height).data;
-    let n = 0;
-    for (let i = 3; i < d.length; i += 4) if (d[i] > 10) n++;
-    return n;
-  })();
-  if (totalWhite === 0) {
-    showError('Le masque est vide — dessinez en blanc la zone à reconstruire.');
+  const pixels = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height).data;
+  let white = 0;
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 10) white++;
+  if (white === 0) {
+    alert('Le masque est vide — peignez en blanc la zone à reconstruire.');
     return;
   }
 
-  document.getElementById('run-btn').disabled = true;
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
   startLoader();
   document.getElementById('empty-results').style.display = 'none';
-  document.getElementById('results-content').style.display = 'none';
+  document.getElementById('results-content').innerHTML = '';
 
-  // Convertir le canvas masque en Blob PNG
-  const maskBlob = await new Promise(res => binCanvas.toBlob(res, 'image/png'));
+  const maskBlob = await new Promise(res => buildBinaryMaskCanvas().toBlob(res, 'image/png'));
 
-  // Si image pré-chargée depuis URL, on la récupère en blob via l'API
   let imageBlob;
-  if (imgFile && imgFile._preloaded && preloadedCorruptedPath) {
+  if (imgFile._preloaded && preloadedPath) {
     try {
-      const r = await fetch(`${API}/files/serve?path=${encodeURIComponent(preloadedCorruptedPath)}`);
+      const r = await fetch(`${API}/files/serve?path=${encodeURIComponent(preloadedPath)}`);
       imageBlob = await r.blob();
-    } catch(e) {
+    } catch {
       stopLoader();
       showError("Impossible de récupérer l'image pré-chargée.");
-      document.getElementById('run-btn').disabled = false;
+      btn.disabled = false;
       return;
     }
   } else {
     imageBlob = imgFile;
   }
 
-  const fname = imgFile.name || 'image.png';
-  const form = new FormData();
-  form.append('image', imageBlob, fname);
-  form.append('mask',  maskBlob, 'mask.png');
-  form.append('max_attempts', document.getElementById('max-attempts').value);
-  // Passer le chemin original pour scoring supervisé si disponible
-  if (preloadedCorruptedPath) {
-    form.append('original_image_path', '');
-  }
+  const fd = new FormData();
+  fd.append('image', imageBlob, imgFile.name || 'image.jpg');
+  fd.append('mask',  maskBlob,  'mask.png');
+  fd.append('max_attempts', document.getElementById('max-attempts').value);
 
   try {
-    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, {
-      method: 'POST',
-      body: form,
-    });
+    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, { method: 'POST', body: fd });
     stopLoader();
-
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
       showError(err.detail || 'Erreur inconnue');
     } else {
-      const data = await resp.json();
-      renderResults(data);
+      renderResults(await resp.json());
     }
   } catch (e) {
     stopLoader();
     showError('Impossible de contacter l\'API sur ' + API);
   } finally {
-    document.getElementById('run-btn').disabled = false;
+    btn.disabled = false;
   }
 }
 
-function showError(msg) {
-  const rc = document.getElementById('results-content');
-  rc.style.display = 'flex';
-  rc.innerHTML = `<div class="error-box"><strong style="display:block;margin-bottom:.3rem;letter-spacing:.1em">// ERREUR</strong>${escHtml(msg)}</div>`;
-  document.getElementById('empty-results').style.display = 'none';
-}
-
-function escHtml(s) {
+function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function scoreColor(s) {
-  if (s >= 80) return 'var(--success)';
-  if (s >= 60) return 'var(--accent)';
-  if (s >= 40) return '#ffaa00';
+function scoreColor(v) {
+  if (v >= 80) return 'var(--success)';
+  if (v >= 60) return 'var(--accent)';
+  if (v >= 40) return 'var(--warn)';
   return 'var(--accent2)';
+}
+
+function scoreTagCls(v) {
+  if (v >= 70) return 'background:rgba(61,186,126,.15);color:var(--success)';
+  if (v >= 40) return 'background:rgba(232,125,32,.15);color:var(--warn)';
+  return 'background:rgba(217,79,79,.15);color:var(--accent2)';
+}
+
+function showError(msg) {
+  document.getElementById('results-content').innerHTML =
+    `<div class="error-box"><strong style="display:block;margin-bottom:.3rem;letter-spacing:.1em">// ERREUR</strong>${esc(msg)}</div>`;
 }
 
 function renderResults(data) {
@@ -555,38 +948,36 @@ function renderResults(data) {
   const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
   const maskUrl  = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
 
-  const candidates = (data.candidates || []).slice(0, 5).map(c => {
+  const cands = (data.candidates || []).slice(0, 6).map(c => {
     const s = parseFloat(c.score || 0).toFixed(1);
     const isBest = c.strategy === strategy;
-    return `<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.65rem;padding:.3rem 0;border-bottom:1px solid var(--border);color:${isBest ? 'var(--accent)' : 'var(--muted)'}">
-      <span>${isBest ? '▶ ' : ''}${escHtml(c.strategy)}</span>
-      <span>${s}</span>
+    return `<div class="cand-row ${isBest ? 'best' : ''}">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${isBest ? '▶ ' : ''}${esc(c.strategy)}</span>
+      <span class="cand-score" style="${scoreTagCls(parseFloat(s))}">${s}</span>
     </div>`;
   }).join('');
 
-  document.getElementById('results-content').style.display = 'flex';
   document.getElementById('results-content').innerHTML = `
-    <div class="result-img-wrap">
-      <div class="result-img-label"><span class="dot" style="background:var(--success)"></span>Reconstruite</div>
+    <div class="result-img">
+      <div class="result-img-head"><span class="rdot" style="background:var(--success)"></span>Image reconstruite</div>
       <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=.3">
     </div>
-    <div class="result-img-wrap">
-      <div class="result-img-label"><span class="dot" style="background:var(--muted)"></span>Masque utilisé</div>
+    <div class="result-img">
+      <div class="result-img-head"><span class="rdot" style="background:var(--muted)"></span>Masque utilisé</div>
       <img src="${maskUrl}" alt="Masque" onerror="this.style.opacity=.3">
     </div>
-    <div class="score-display">
-      <div class="score-val" style="color:${scoreColor(parseFloat(score))}">${score}<span style="font-size:1rem;opacity:.5">/100</span></div>
-      <div class="score-label">SCORE GLOBAL</div>
-      <div class="strategy-badge">${escHtml(strategy)}</div>
-      <div style="font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-top:.4rem">${retries} stratégie(s) testée(s)</div>
+    <div class="score-card">
+      <div class="score-val" style="color:${scoreColor(parseFloat(score))}">${score}<span style="font-size:1rem;opacity:.4">/100</span></div>
+      <div class="score-lbl">SCORE GLOBAL</div>
+      <div class="strategy-badge">${esc(strategy)}</div>
+      <div class="score-detail">${retries} stratégie(s) testée(s)</div>
     </div>
     <div>
-      <div style="font-family:var(--mono);font-size:.6rem;color:var(--accent);letter-spacing:.12em;margin-bottom:.4rem">// TOP CANDIDATS</div>
-      ${candidates}
+      <div class="cands-title">// Top candidats</div>
+      ${cands}
     </div>`;
 }
 
-// Resize on load
 window.addEventListener('resize', () => { if (imgFile) resizeCanvases(); });
 </script>
 </body>
