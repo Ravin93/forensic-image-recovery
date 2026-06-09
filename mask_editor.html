@@ -884,12 +884,12 @@ async function runRepair() {
   }
 
   const fd = new FormData();
-  fd.append('image', imageBlob, imgFile.name || 'image.jpg');
-  fd.append('mask',  maskBlob,  'mask.png');
+  fd.append('image',     imageBlob, imgFile.name || 'image.jpg');
+  fd.append('user_mask', maskBlob,  'mask.png');
   fd.append('max_attempts', document.getElementById('max-attempts').value);
 
   try {
-    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, { method: 'POST', body: fd });
+    const resp = await fetch(`${API}/reconstruction/compare-masks`, { method: 'POST', body: fd });
     stopLoader();
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
@@ -928,46 +928,81 @@ function showError(msg) {
 }
 
 function renderResults(data) {
-  lastReconPath   = data.reconstructed_image;
-  const score    = parseFloat(data.score || 0).toFixed(1);
-  const strategy = data.selected_repair_strategy || '—';
-  const retries  = data.retry_count ?? 0;
-  const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
-  const maskUrl  = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
+  lastReconPath = data.reconstructed_image;
 
-  const cands = (data.candidates || []).slice(0, 6).map(c => {
-    const s = parseFloat(c.score || 0).toFixed(1);
-    const isBest = c.strategy === strategy;
-    return `<div class="cand-row ${isBest ? 'best' : ''}">
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${isBest ? '▶ ' : ''}${esc(c.strategy)}</span>
-      <span class="cand-score" style="${scoreTagCls(parseFloat(s))}">${s}</span>
-    </div>`;
-  }).join('');
+  const winner   = data.winner || 'user_mask';
+  const note     = data.comparison_note || '';
+  const ud       = data.user_mask || {};
+  const ad       = data.auto_mask || {};
+
+  const userScore    = parseFloat(ud.score ?? 0).toFixed(1);
+  const autoScore    = parseFloat(ad.score ?? 0).toFixed(1);
+  const userStrategy = ud.selected_repair_strategy || '—';
+  const autoStrategy = ad.selected_repair_strategy || '—';
+
+  const userReconUrl = ud.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.reconstructed_image)}` : '';
+  const autoReconUrl = ad.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.reconstructed_image)}` : '';
+  const maskUrl = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
+
+  const bestScore = parseFloat(data.score || 0).toFixed(1);
+  const bestStrategy = data.selected_repair_strategy || '—';
+  const retries = (winner === 'user_mask' ? ud.retry_count : ad.retry_count) ?? 0;
+
+  const bannerCls   = winner === 'user_mask' ? 'user-wins' : 'auto-wins';
+  const bannerTitle = winner === 'user_mask' ? '✓ Votre masque est meilleur' : '⚡ Détection auto est meilleure';
+
+  const userWins = winner === 'user_mask';
+  const autoWins = winner === 'auto_mask';
 
   document.getElementById('results-content').innerHTML = `
-    <div class="result-img">
-      <div class="result-img-head"><span class="rdot" style="background:var(--success)"></span>Image reconstruite</div>
-      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=.3">
+    <div class="compare-banner ${bannerCls}">
+      <span>${bannerTitle}</span>
+      <span class="compare-note">${esc(note)}</span>
     </div>
+
+    <div class="compare-col ${userWins ? 'winner' : ''}">
+      <div class="compare-col-head">
+        <span class="rdot" style="background:${userWins ? 'var(--success)' : 'var(--muted)'}"></span>
+        Votre masque ${userWins ? '★' : ''}
+      </div>
+      ${userReconUrl ? `<img src="${userReconUrl}" alt="Votre résultat" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
+      <div class="compare-col-foot">
+        <span class="compare-score-val" style="color:${scoreColor(parseFloat(userScore))}">${userScore}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${esc(userStrategy)}</span>
+      </div>
+    </div>
+
+    <div class="compare-col ${autoWins ? 'winner' : ''}">
+      <div class="compare-col-head">
+        <span class="rdot" style="background:${autoWins ? 'var(--success)' : 'var(--muted)'}"></span>
+        Détection auto ${autoWins ? '★' : ''}
+      </div>
+      ${autoReconUrl ? `<img src="${autoReconUrl}" alt="Résultat auto" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
+      <div class="compare-col-foot">
+        <span class="compare-score-val" style="color:${scoreColor(parseFloat(autoScore))}">${autoScore}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${esc(autoStrategy)}</span>
+      </div>
+    </div>
+
     <div class="result-img">
       <div class="result-img-head"><span class="rdot" style="background:var(--muted)"></span>Masque utilisé</div>
       <img src="${maskUrl}" alt="Masque" onerror="this.style.opacity=.3">
     </div>
+
     <div class="score-card">
-      <div class="score-val" style="color:${scoreColor(parseFloat(score))}">${score}<span style="font-size:1rem;opacity:.4">/100</span></div>
-      <div class="score-lbl">Score global</div>
-      <div class="strategy-badge">${esc(strategy)}</div>
+      <div class="score-val" style="color:${scoreColor(parseFloat(bestScore))}">${bestScore}<span style="font-size:1rem;opacity:.4">/100</span></div>
+      <div class="score-lbl">Meilleur score</div>
+      <div class="strategy-badge">${esc(bestStrategy)}</div>
       <div class="score-detail">${retries} stratégie(s) testée(s)</div>
     </div>
-    <div>
-      <div class="cands-title">Top candidats</div>
-      ${cands}
-    </div>
+
     <div class="iter-row">
-      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque — relancez directement">
+      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque">
         ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
       </button>
-      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge — redessinez une zone différente">
+      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge">
         ↩ Nouveau masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
       </button>
     </div>`;
