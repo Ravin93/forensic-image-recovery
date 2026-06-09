@@ -76,7 +76,7 @@ h3{font-size:.7rem;color:var(--muted);font-family:var(--mono);letter-spacing:.1e
 .img-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .img-label{font-family:var(--mono);font-size:.58rem;color:var(--muted);padding:.35rem .65rem;border-bottom:1px solid var(--border);letter-spacing:.08em;text-transform:uppercase;display:flex;gap:.35rem;align-items:center;background:var(--surface2)}
 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
-.img-card img{width:100%;display:block;max-height:180px;object-fit:cover;background:var(--surface2)}
+.img-card img{width:100%;display:block;max-height:180px;object-fit:contain;background:var(--surface2)}
 .img-placeholder{width:100%;height:120px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.62rem;color:var(--muted)}
 .score-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem 1.75rem;display:grid;grid-template-columns:auto 1fr auto;gap:1.5rem;align-items:center;margin-bottom:1rem}
 .score-num{font-family:var(--mono);font-size:2.4rem;font-weight:700}
@@ -209,10 +209,10 @@ def generate_html_report(report: dict, output_path=None) -> Path:
         "<span>STATUT : " + status + "</span></p>\n",
         "<h2>// Analyse visuelle</h2>\n",
         '<div class="images">',
-        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#00e5ff"></span>Originale</div>' + _img_tag(orig_b64,"Originale") + "</div>",
-        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#ff3d71"></span>Corrompue</div>' + _img_tag(corr_b64,"Corrompue") + "</div>",
-        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#6b6b80"></span>Masque</div>' + _img_tag(mask_b64,"Masque") + "</div>",
-        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#00e096"></span>Reconstruite</div>' + _img_tag(recon_b64,"Reconstruite") + "</div>",
+        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#0d9488"></span>Originale</div>' + _img_tag(orig_b64,"Originale") + "</div>",
+        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#9b4444"></span>Corrompue</div>' + _img_tag(corr_b64,"Corrompue") + "</div>",
+        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#6b6358"></span>Masque</div>' + _img_tag(mask_b64,"Masque") + "</div>",
+        '<div class="img-card"><div class="img-label"><span class="dot" style="background:#4d7c5f"></span>Reconstruite</div>' + _img_tag(recon_b64,"Reconstruite") + "</div>",
         "</div>\n",
         "<h2>// Dégradation appliquée</h2>\n",
         '<div class="metric-card" style="margin-bottom:1rem">' + ct_rows + "</div>\n",
