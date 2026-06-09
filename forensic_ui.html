@@ -313,7 +313,7 @@ header {
 /* ─── Divider ─── */
 hr { border: none; border-top: 1px solid var(--border); }
 
-/* ─── Mask toggle ─── */
+/* ─── Mask editor redirect button ─── */
 .mask-toggle {
   width: 100%;
   padding: 0.6rem 0.9rem;
@@ -331,52 +331,9 @@ hr { border: none; border-top: 1px solid var(--border); }
   transition: all 0.15s;
 }
 
-.mask-toggle:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
-.mask-toggle.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+.mask-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
-.mask-panel { display: none; flex-direction: column; gap: 0.75rem; }
-.mask-panel.visible { display: flex; }
-
-.mask-hint {
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  color: var(--error);
-  background: var(--error-bg);
-  border: 1px solid var(--error);
-  border-radius: var(--rs);
-  padding: 0.5rem 0.75rem;
-  line-height: 1.6;
-  opacity: 0.8;
-}
-
-.mask-canvas-wrap {
-  position: relative;
-  border: 1px solid var(--border);
-  border-radius: var(--rs);
-  background: var(--surface2);
-  overflow: hidden;
-  cursor: crosshair;
-  height: 180px;
-}
-
-#mask-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#mask-preview-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.mask-tools { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
-
+/* dead CSS kept for potential re-use — effectively empty */
 .mtool-btn {
   padding: 0.32rem 0.65rem;
   background: var(--surface);
@@ -390,37 +347,7 @@ hr { border: none; border-top: 1px solid var(--border); }
   transition: all 0.15s;
 }
 
-.mtool-btn:hover { border-color: var(--error); color: var(--error); }
-.mtool-btn.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
-
-.brush-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  color: var(--muted);
-  flex: 1;
-}
-
-.brush-wrap input { width: 60px; accent-color: var(--error); }
-
-.mask-run {
-  width: 100%;
-  padding: 0.7rem;
-  background: transparent;
-  border: 1.5px solid var(--error);
-  border-radius: var(--r);
-  color: var(--error);
-  font-family: var(--sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mask-run:hover { background: var(--error-bg); }
-.mask-run:disabled { border-color: var(--border); color: var(--muted2); cursor: not-allowed; background: transparent; }
+.mtool-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ─── Loader ─── */
 .loader { display: none; align-items: center; gap: 0.6rem; }
@@ -866,34 +793,10 @@ table.cand-table { width: 100%; border-collapse: collapse; }
     <hr>
 
     <div>
-      <button class="mask-toggle" id="mask-toggle" onclick="toggleMaskMode()">
+      <button class="mask-toggle" id="mask-toggle" onclick="goToMaskEditor()">
         <span>✏</span>
         <span>Dessiner un masque manuellement</span>
       </button>
-
-      <div class="mask-panel" id="mask-panel" style="margin-top:0.75rem">
-        <div class="mask-hint">
-          Peignez la zone corrompue à reconstruire.
-        </div>
-        <div class="mask-canvas-wrap" id="mask-canvas-wrap">
-          <img id="mask-preview-img" alt="">
-          <canvas id="mask-canvas" width="400" height="200"></canvas>
-        </div>
-        <div class="mask-tools">
-          <button class="mtool-btn active" id="mbtn-brush"  onclick="setTool('brush')">Pinceau</button>
-          <button class="mtool-btn"        id="mbtn-eraser" onclick="setTool('eraser')">Gomme</button>
-          <button class="mtool-btn"                         onclick="clearMask()">Reset</button>
-          <div class="brush-wrap">
-            Taille
-            <input type="range" id="brush-sz" min="5" max="60" value="20"
-                   oninput="document.getElementById('bsz-val').textContent=this.value">
-            <span id="bsz-val">20</span>px
-          </div>
-        </div>
-        <button class="mask-run" id="mask-run-btn" disabled onclick="runWithMask()">
-          ▶ Reconstruire avec ce masque
-        </button>
-      </div>
     </div>
 
     <div class="loader" id="loader">
@@ -956,17 +859,6 @@ function setFile(f) {
   dropzone.classList.add('has-file');
   document.getElementById('file-name').textContent = f.name;
   document.getElementById('run-btn').disabled = false;
-  document.getElementById('mask-run-btn').disabled = false;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = document.getElementById('mask-preview-img');
-    img.src = e.target.result;
-    const pic = new Image();
-    pic.onload = () => { maskNatW = pic.width; maskNatH = pic.height; };
-    pic.src = e.target.result;
-  };
-  reader.readAsDataURL(f);
 }
 
 /* ── Corruption buttons ── */
@@ -1129,6 +1021,9 @@ function renderResults(data) {
   const runIdM   = (data.report_path||'').match(/report_([a-f0-9]+)\.json/);
   const runId    = runIdM ? runIdM[1] : null;
 
+  lastCorruptedPath = data.corrupted_image;
+  lastOriginalPath  = data.original_image;
+
   const origUrl  = `${API}/files/serve?path=${encodeURIComponent(data.original_image)}`;
   const corrUrl  = `${API}/files/serve?path=${encodeURIComponent(data.corrupted_image)}`;
   const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
@@ -1170,9 +1065,9 @@ function renderResults(data) {
   </div>`;
 
   const breakdown  = renderBreakdown(data);
-  const editorUrl  = `mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
+  const editorUrl  = `mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}&original_path=${encodeURIComponent(data.original_image)}`;
   const actionBar  = `<div class="action-bar">
-    <a class="act-btn" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
+    <a class="act-btn" href="${editorUrl}">✏ Éditeur de masque</a>
     ${runId ? `<a class="act-btn teal" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
     ${runId ? `<a class="act-btn" href="${API}/reports/html/${runId}" target="_blank">⊞ HTML</a>` : ''}
   </div>`;
@@ -1207,121 +1102,17 @@ function renderResults(data) {
   }));
 }
 
-/* ── Mask mode ── */
-let maskNatW = 0, maskNatH = 0;
-let maskTool = 'brush', maskPainting = false;
+/* ── Mask editor redirect ── */
+let lastCorruptedPath = null;
+let lastOriginalPath  = null;
 
-function toggleMaskMode() {
-  const panel = document.getElementById('mask-panel');
-  const btn   = document.getElementById('mask-toggle');
-  const show  = !panel.classList.contains('visible');
-  panel.classList.toggle('visible', show);
-  btn.classList.toggle('active', show);
-}
-
-const maskCanvas = document.getElementById('mask-canvas');
-const maskCtx    = maskCanvas.getContext('2d');
-
-maskCanvas.addEventListener('mousedown',  e => { maskPainting=true; maskDraw(e); });
-maskCanvas.addEventListener('mousemove',  maskDraw);
-maskCanvas.addEventListener('mouseup',    () => { maskPainting=false; });
-maskCanvas.addEventListener('mouseleave', () => { maskPainting=false; });
-maskCanvas.addEventListener('touchstart', e => { maskPainting=true; maskDraw(e); }, {passive:false});
-maskCanvas.addEventListener('touchmove',  maskDraw, {passive:false});
-maskCanvas.addEventListener('touchend',   () => { maskPainting=false; });
-
-function maskGetPos(e) {
-  const r = maskCanvas.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
-  return {
-    x: (t.clientX-r.left)*(maskCanvas.width/r.width),
-    y: (t.clientY-r.top)*(maskCanvas.height/r.height),
-  };
-}
-
-function maskDraw(e) {
-  if (!maskPainting) return;
-  e.preventDefault();
-  const {x,y} = maskGetPos(e);
-  const sz = parseInt(document.getElementById('brush-sz').value);
-  maskCtx.globalCompositeOperation = maskTool==='eraser' ? 'destination-out' : 'source-over';
-  maskCtx.fillStyle = 'rgba(13,148,136,0.55)';
-  maskCtx.beginPath();
-  maskCtx.arc(x, y, sz/2, 0, Math.PI*2);
-  maskCtx.fill();
-}
-
-function setTool(t) {
-  maskTool = t;
-  document.getElementById('mbtn-brush').classList.toggle('active', t==='brush');
-  document.getElementById('mbtn-eraser').classList.toggle('active', t==='eraser');
-}
-
-function clearMask() { maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height); }
-
-/* Masque binaire aux dimensions réelles — imageSmoothingEnabled=false obligatoire */
-function buildBinaryMask() {
-  const tmp = document.createElement('canvas');
-  tmp.width=maskCanvas.width; tmp.height=maskCanvas.height;
-  const ctx=tmp.getContext('2d');
-  ctx.fillStyle='black';
-  ctx.fillRect(0,0,tmp.width,tmp.height);
-
-  const src=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
-  const dst=ctx.getImageData(0,0,tmp.width,tmp.height);
-  for (let i=0;i<src.data.length;i+=4) {
-    if (src.data[i+3]>10) {
-      dst.data[i]=255; dst.data[i+1]=255; dst.data[i+2]=255; dst.data[i+3]=255;
-    }
-  }
-  ctx.putImageData(dst,0,0);
-
-  if (maskNatW>0 && maskNatH>0 && (tmp.width!==maskNatW||tmp.height!==maskNatH)) {
-    const real=document.createElement('canvas');
-    real.width=maskNatW; real.height=maskNatH;
-    const rctx=real.getContext('2d');
-    rctx.imageSmoothingEnabled=false;
-    rctx.drawImage(tmp,0,0,maskNatW,maskNatH);
-    return real;
-  }
-  return tmp;
-}
-
-const MASK_MSGS = [
-  'Préparation du masque…','Envoi au serveur…','Inpainting r3…','Inpainting r5…',
-  'Débruitage médian…','Bilatéral…','Hybride…','Calcul des scores…','Sélection…',
-];
-
-async function runWithMask() {
-  if (!selectedFile) return;
-  const px=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height).data;
-  let w=0; for (let i=3;i<px.length;i+=4) if (px[i]>10) w++;
-  if (w===0) { alert('Le masque est vide — peignez la zone à reconstruire.'); return; }
-
-  const btn=document.getElementById('mask-run-btn');
-  btn.disabled=true;
-  startLoader(MASK_MSGS);
-
-  const maskBlob=await new Promise(res=>buildBinaryMask().toBlob(res,'image/png'));
-  const fd=new FormData();
-  fd.append('image',selectedFile,selectedFile.name);
-  fd.append('mask',maskBlob,'mask.png');
-  fd.append('max_attempts',document.getElementById('max-attempts').value);
-
-  try {
-    const r=await fetch(`${API}/reconstruction/repair-with-mask`,{method:'POST',body:fd});
-    stopLoader();
-    if (!r.ok) {
-      const err=await r.json().catch(()=>({detail:r.statusText}));
-      showError(err.detail||'Erreur inconnue');
-    } else {
-      renderResults(await r.json());
-    }
-  } catch (e) {
-    stopLoader();
-    showError('Impossible de contacter l\'API sur '+API);
-  } finally {
-    btn.disabled=false;
+function goToMaskEditor() {
+  if (lastCorruptedPath) {
+    let url = `mask_editor.html?corrupted_path=${encodeURIComponent(lastCorruptedPath)}`;
+    if (lastOriginalPath) url += `&original_path=${encodeURIComponent(lastOriginalPath)}`;
+    window.location.href = url;
+  } else {
+    window.location.href = 'mask_editor.html';
   }
 }
 </script>
