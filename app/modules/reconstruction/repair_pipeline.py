@@ -35,11 +35,13 @@ def _score_candidate(
     corrupted_image_path: str | Path,
     candidate_path: str | Path,
     original_image_path: str | Path | None = None,
+    mask: np.ndarray | None = None,
 ) -> tuple[float, dict[str, Any]]:
     result = _metrics_score_candidate(
         corrupted=corrupted_image_path,
         reconstructed=candidate_path,
         original=original_image_path,
+        mask=mask,
     )
     return float(result.get("score", 0.0)), result
 
@@ -58,8 +60,9 @@ def _candidate_from_path(
     corrupted_image_path: str | Path,
     original_image_path: str | Path | None = None,
     extra: dict[str, Any] | None = None,
+    mask: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    score, details = _score_candidate(corrupted_image_path, path, original_image_path)
+    score, details = _score_candidate(corrupted_image_path, path, original_image_path, mask=mask)
     candidate: dict[str, Any] = {"strategy": name, "path": path, "score": score, **details}
     if extra:
         candidate.update(extra)
@@ -261,6 +264,7 @@ def _run_iterative_pass(
     method: str,
     base_radius: int,
     max_iterations: int = 3,
+    mask_arr: np.ndarray | None = None,
 ) -> dict[str, Any] | None:
     """B2 — Affine le meilleur inpainting par passes successives.
 
@@ -272,7 +276,7 @@ def _run_iterative_pass(
 
     best_path = str(corrupted_image_path)
     best_score, best_details = _score_candidate(
-        corrupted_image_path, corrupted_image_path, original_image_path
+        corrupted_image_path, corrupted_image_path, original_image_path, mask=mask_arr
     )
     iterations: list[dict[str, Any]] = []
     stopped_reason = "max_iterations"
@@ -284,7 +288,7 @@ def _run_iterative_pass(
                 Path(best_path), mask_path_obj, method=method, radius=radius
             )
             score, details = _score_candidate(
-                corrupted_image_path, r["path"], original_image_path
+                corrupted_image_path, r["path"], original_image_path, mask=mask_arr
             )
             iterations.append({
                 "iteration": i + 1,
@@ -381,6 +385,15 @@ def run_repair_pipeline(
     out_dir = corrupted_image_path.parent.parent / "reconstructed"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Load mask as ndarray once — used to improve scoring accuracy
+    mask_arr: np.ndarray | None = None
+    if mask_path_obj is not None:
+        try:
+            from PIL import Image as _PILImage
+            mask_arr = np.array(_PILImage.open(mask_path_obj).convert("L"))
+        except Exception:
+            mask_arr = None
+
     recommended = choose_repair_strategy(corruption_type, detection_confidence)
     logger.info(
         "Repair pipeline start | image=%s | mask=%s | recommended=%s | confidence=%.3f",
@@ -398,6 +411,7 @@ def run_repair_pipeline(
         "conservative", str(corrupted_image_path),
         corrupted_image_path, orig_path,
         extra={"recommended": recommended, "family": "conservative"},
+        mask=mask_arr,
     ))
 
     # B1 — Plan adaptatif
@@ -421,6 +435,7 @@ def run_repair_pipeline(
                     candidates.append(_candidate_from_path(
                         strategy, result_path, corrupted_image_path, orig_path,
                         extra={"family": family, "steps": plan.get("steps", [])},
+                        mask=mask_arr,
                     ))
 
             elif family == "patchmatch":
@@ -435,6 +450,7 @@ def run_repair_pipeline(
                     strategy, result["path"], corrupted_image_path, orig_path,
                     extra={"patch_size": plan["patch_size"],
                            "iterations": plan["iterations"], "family": family},
+                    mask=mask_arr,
                 ))
 
             elif family == "inpainting":
@@ -447,6 +463,7 @@ def run_repair_pipeline(
                 candidates.append(_candidate_from_path(
                     strategy, result["path"], corrupted_image_path, orig_path,
                     extra={"radius": int(plan["radius"]), "family": family},
+                    mask=mask_arr,
                 ))
 
             elif family == "denoise":
@@ -454,6 +471,7 @@ def run_repair_pipeline(
                 candidates.append(_candidate_from_path(
                     strategy, result["path"], corrupted_image_path, orig_path,
                     extra={"family": family},
+                    mask=mask_arr,
                 ))
 
             elif family == "deblur":
@@ -465,6 +483,7 @@ def run_repair_pipeline(
                 candidates.append(_candidate_from_path(
                     strategy, path, corrupted_image_path, orig_path,
                     extra={"family": family, "strength": plan.get("strength")},
+                    mask=mask_arr,
                 ))
 
             elif family == "block_repair":
@@ -474,6 +493,7 @@ def run_repair_pipeline(
                 candidates.append(_candidate_from_path(
                     strategy, path, corrupted_image_path, orig_path,
                     extra={"family": family},
+                    mask=mask_arr,
                 ))
 
             elif family == "hybrid":
@@ -488,6 +508,7 @@ def run_repair_pipeline(
                     strategy, hybrid["path"], corrupted_image_path, orig_path,
                     extra={"family": family, "radius": int(plan["radius"]),
                            "denoise_method": str(plan["denoise_method"])},
+                    mask=mask_arr,
                 ))
 
         except Exception as exc:
@@ -498,6 +519,7 @@ def run_repair_pipeline(
         iterative = _run_iterative_pass(
             corrupted_image_path, mask_path_obj, orig_path,
             method, radius, max_iterations=min(3, max_attempts - len(candidates)),
+            mask_arr=mask_arr,
         )
         if iterative:
             candidates.append(iterative)
