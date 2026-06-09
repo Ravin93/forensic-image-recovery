@@ -4,24 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Forensic Image Recovery</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #0c0e14;
-  --surface:  #121520;
-  --surface2: #1a1e2e;
-  --border:   #252a3a;
-  --accent:   #f0a030;
-  --accent2:  #d94f4f;
-  --accent3:  #6b8cda;
-  --text:     #dde1ee;
-  --muted:    #52587a;
-  --success:  #3dba7e;
-  --warn:     #e87d20;
-  --mono: 'JetBrains Mono', monospace;
-  --sans: 'Inter', system-ui, sans-serif;
-  --radius: 4px;
+  --bg:         #f5f0e8;
+  --surface:    #edeae3;
+  --surface2:   #e4e0d8;
+  --border:     #cfc9be;
+  --text:       #1e1c18;
+  --muted:      #6b6358;
+  --muted2:     #a09589;
+  --accent:     #0d9488;
+  --accent-bg:  #e6f4f3;
+  --accent-dk:  #0f766e;
+  --success:    #4d7c5f;
+  --success-bg: #eaf3ed;
+  --error:      #9b4444;
+  --error-bg:   #faeaea;
+  --warn:       #7d6b2f;
+  --warn-bg:    #f5efd4;
+  --sans:  system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono:  'Courier New', Courier, monospace;
+  --r:  12px;
+  --rs:  8px;
+  --rp:  999px;
+  --shadow: 0 1px 3px rgba(30,28,24,0.08), 0 1px 2px rgba(30,28,24,0.06);
+  --shadow-md: 0 4px 12px rgba(30,28,24,0.10), 0 2px 4px rgba(30,28,24,0.06);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,6 +37,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -37,14 +46,18 @@ body {
 
 /* ─── Header ─── */
 header {
-  height: 56px;
-  padding: 0 1.5rem;
+  background: #fff;
   border-bottom: 1px solid var(--border);
+  height: 60px;
+  padding: 0 1.5rem;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-shrink: 0;
-  background: var(--surface);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .logo {
@@ -55,9 +68,9 @@ header {
 }
 
 .logo-mark {
-  width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--accent), var(--warn));
-  border-radius: 6px;
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: var(--rs);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -65,54 +78,61 @@ header {
 .logo-mark svg { display: block; }
 
 .logo-name {
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
   color: var(--text);
+  letter-spacing: -0.01em;
 }
 
-.logo-ver {
+.logo-sub {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--muted);
 }
 
 .header-link {
-  font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--muted);
   text-decoration: none;
-  padding: 0.35rem 0.75rem;
+  padding: 0.4rem 0.85rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  transition: color 0.15s, border-color 0.15s;
+  border-radius: var(--rp);
+  background: var(--surface);
+  transition: all 0.15s;
+  white-space: nowrap;
 }
 
-.header-link:hover { color: var(--accent); border-color: var(--accent); }
+.header-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
 
 .api-badge {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--muted);
-  padding: 0.3rem 0.7rem;
+  padding: 0.3rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 99px;
+  border-radius: var(--rp);
+  background: var(--surface);
 }
 
 .api-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--muted2);
   flex-shrink: 0;
-  transition: background 0.3s, box-shadow 0.3s;
+  transition: background 0.3s;
 }
-.api-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
-.api-dot.offline { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
 
-/* ─── App layout ─── */
+.api-dot.online  { background: var(--success); }
+.api-dot.offline { background: var(--error); }
+
+/* ─── Layout ─── */
 .app {
   flex: 1;
   display: grid;
@@ -122,100 +142,64 @@ header {
 
 /* ─── Sidebar ─── */
 .sidebar {
+  background: #fff;
   border-right: 1px solid var(--border);
-  background: var(--surface);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 1.25rem;
-  gap: 1.25rem;
+  padding: 1.5rem;
+  gap: 1.5rem;
 }
 
-.sidebar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.section-label {
+.section-lbl {
   font-family: var(--mono);
   font-size: 0.6rem;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.section-label::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
+  color: var(--muted2);
+  margin-bottom: 0.5rem;
 }
 
 /* ─── Dropzone ─── */
 .dropzone {
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 1.75rem 1rem;
+  border: 2px dashed var(--border);
+  border-radius: var(--r);
+  padding: 2rem 1.25rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  position: relative;
+  transition: all 0.2s;
+  background: var(--surface);
 }
 
 .dropzone:hover, .dropzone.drag-over {
   border-color: var(--accent);
-  background: rgba(240,160,48,0.04);
+  background: var(--accent-bg);
 }
 
 .dropzone.has-file {
   border-color: var(--success);
   border-style: solid;
-  background: rgba(61,186,126,0.04);
+  background: var(--success-bg);
 }
 
-.dz-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  display: block;
-  opacity: 0.4;
-}
-
-.dz-hint {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.dz-hint small { display: block; font-size: 0.68rem; margin-top: 0.15rem; }
-
-.dz-file {
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  color: var(--success);
-  margin-top: 0.4rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+.dz-icon { font-size: 1.75rem; display: block; margin-bottom: 0.5rem; opacity: 0.35; }
+.dz-hint { font-size: 0.82rem; color: var(--muted); }
+.dz-hint small { display: block; margin-top: 0.2rem; font-size: 0.72rem; color: var(--muted2); }
+.dz-file { font-family: var(--mono); font-size: 0.68rem; color: var(--success); margin-top: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #file-input { display: none; }
 
 /* ─── Corruption grid ─── */
 .corr-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .corr-btn {
   padding: 0.45rem 0.5rem;
-  background: var(--surface2);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rs);
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.62rem;
@@ -227,68 +211,73 @@ header {
   text-overflow: ellipsis;
 }
 
-.corr-btn:hover { border-color: var(--accent3); color: var(--text); }
+.corr-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
 .corr-btn.active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(240,160,48,0.08);
+  background: var(--accent-bg);
+  font-weight: 600;
 }
 
 /* ─── Severity ─── */
-.sev-row { display: flex; gap: 0.35rem; }
+.sev-row { display: flex; gap: 0.4rem; }
 
 .sev-btn {
   flex: 1;
   padding: 0.4rem;
-  background: var(--surface2);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rp);
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.62rem;
   cursor: pointer;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   transition: all 0.15s;
 }
 
-.sev-btn.sev-light  { border-color: var(--success); color: var(--success); background: rgba(61,186,126,0.08); }
-.sev-btn.sev-medium { border-color: var(--warn);    color: var(--warn);    background: rgba(232,125,32,0.08); }
-.sev-btn.sev-heavy  { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.08); }
+.sev-btn.sev-light  { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+.sev-btn.sev-medium { border-color: var(--warn);    color: var(--warn);    background: var(--warn-bg); }
+.sev-btn.sev-heavy  { border-color: var(--error);   color: var(--error);   background: var(--error-bg); }
 
-/* ─── Select & range ─── */
-.field-row {
+/* ─── Fields ─── */
+.field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
-.field-row label {
+.field label {
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.field-row select {
-  background: var(--surface2);
+.field select {
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rs);
   color: var(--text);
-  padding: 0.5rem 0.7rem;
-  font-family: var(--mono);
-  font-size: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  font-family: var(--sans);
+  font-size: 0.82rem;
   width: 100%;
   appearance: none;
   cursor: pointer;
   transition: border-color 0.15s;
 }
 
-.field-row select:focus { outline: none; border-color: var(--accent); }
+.field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
 
-.field-row input[type=range] {
+.field input[type=range] {
   width: 100%;
   accent-color: var(--accent);
   cursor: pointer;
@@ -298,41 +287,42 @@ header {
   font-family: var(--mono);
   font-size: 0.65rem;
   color: var(--accent);
-  text-align: right;
 }
 
 /* ─── Run button ─── */
 .run-btn {
   width: 100%;
-  padding: 0.8rem;
+  padding: 0.9rem;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius);
-  color: #0c0e14;
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  border-radius: var(--r);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  box-shadow: var(--shadow);
 }
 
-.run-btn:hover:not(:disabled) { opacity: 0.88; }
+.run-btn:hover:not(:disabled) { background: var(--accent-dk); box-shadow: var(--shadow-md); }
 .run-btn:active:not(:disabled) { transform: translateY(1px); }
-.run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.run-btn:disabled { background: var(--border); color: var(--muted2); cursor: not-allowed; box-shadow: none; }
 
-/* ─── Mask mode ─── */
+/* ─── Divider ─── */
+hr { border: none; border-top: 1px solid var(--border); }
+
+/* ─── Mask toggle ─── */
 .mask-toggle {
   width: 100%;
-  padding: 0.6rem;
-  background: transparent;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r);
   color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  font-family: var(--sans);
+  font-size: 0.8rem;
   cursor: pointer;
   text-align: left;
   display: flex;
@@ -341,32 +331,28 @@ header {
   transition: all 0.15s;
 }
 
-.mask-toggle:hover { border-color: var(--accent2); color: var(--accent2); }
-.mask-toggle.active { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.06); }
+.mask-toggle:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+.mask-toggle.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
 
-.mask-panel-inner {
-  display: none;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-
-.mask-panel-inner.visible { display: flex; }
+.mask-panel { display: none; flex-direction: column; gap: 0.75rem; }
+.mask-panel.visible { display: flex; }
 
 .mask-hint {
   font-family: var(--mono);
-  font-size: 0.6rem;
-  color: var(--muted);
-  background: rgba(217,79,79,0.06);
-  border: 1px solid rgba(217,79,79,0.15);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.7rem;
+  font-size: 0.62rem;
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+  border-radius: var(--rs);
+  padding: 0.5rem 0.75rem;
   line-height: 1.6;
+  opacity: 0.8;
 }
 
 .mask-canvas-wrap {
   position: relative;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rs);
   background: var(--surface2);
   overflow: hidden;
   cursor: crosshair;
@@ -385,78 +371,66 @@ header {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.5;
+  opacity: 0.55;
   pointer-events: none;
 }
 
-.mask-tools {
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
+.mask-tools { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 
 .mtool-btn {
-  padding: 0.3rem 0.6rem;
-  background: var(--surface2);
+  padding: 0.32rem 0.65rem;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rp);
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   cursor: pointer;
   text-transform: uppercase;
   transition: all 0.15s;
 }
 
-.mtool-btn:hover { border-color: var(--accent2); color: var(--text); }
-.mtool-btn.active { border-color: var(--accent2); color: var(--accent2); background: rgba(217,79,79,0.08); }
+.mtool-btn:hover { border-color: var(--error); color: var(--error); }
+.mtool-btn.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
 
 .brush-wrap {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--muted);
   flex: 1;
 }
 
-.brush-wrap input { width: 60px; accent-color: var(--accent2); }
+.brush-wrap input { width: 60px; accent-color: var(--error); }
 
 .mask-run {
   width: 100%;
   padding: 0.7rem;
   background: transparent;
-  border: 1px solid var(--accent2);
-  border-radius: var(--radius);
-  color: var(--accent2);
-  font-family: var(--mono);
-  font-size: 0.72rem;
+  border: 1.5px solid var(--error);
+  border-radius: var(--r);
+  color: var(--error);
+  font-family: var(--sans);
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
-.mask-run:hover { background: rgba(217,79,79,0.1); }
-.mask-run:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+.mask-run:hover { background: var(--error-bg); }
+.mask-run:disabled { border-color: var(--border); color: var(--muted2); cursor: not-allowed; background: transparent; }
 
 /* ─── Loader ─── */
-.loader {
-  display: none;
-  align-items: center;
-  gap: 0.6rem;
-}
-
+.loader { display: none; align-items: center; gap: 0.6rem; }
 .loader.on { display: flex; }
 
 .loader-track {
   flex: 1;
-  height: 2px;
-  background: var(--border);
-  border-radius: 1px;
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
   overflow: hidden;
   position: relative;
 }
@@ -483,7 +457,7 @@ header {
 /* ─── Workspace ─── */
 .workspace {
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -498,35 +472,28 @@ header {
   justify-content: center;
   text-align: center;
   gap: 0.75rem;
-  padding: 4rem 2rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  color: var(--muted);
+  padding: 5rem 2rem;
+  border: 2px dashed var(--border);
+  border-radius: var(--r);
+  color: var(--muted2);
 }
 
-.empty-state .es-icon {
-  font-size: 2.5rem;
-  opacity: 0.2;
-}
-
-.empty-state .es-text {
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  line-height: 1.8;
-}
+.empty-state .es-icon { font-size: 2.5rem; display: block; opacity: 0.25; }
+.empty-state .es-text { font-family: var(--mono); font-size: 0.75rem; line-height: 1.9; }
 
 /* ─── Triptych ─── */
 .triptych {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .img-card {
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r);
   overflow: hidden;
+  box-shadow: var(--shadow);
   opacity: 0;
   transform: translateY(8px);
   animation: fadeUp 0.35s forwards;
@@ -541,61 +508,59 @@ header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.6rem 0.9rem;
   border-bottom: 1px solid var(--border);
   font-family: var(--mono);
   font-size: 0.62rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  background: var(--surface);
 }
 
-.img-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-orig  { background: var(--accent3); }
-.dot-corr  { background: var(--accent2); }
+.img-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-orig  { background: #3b82f6; }
+.dot-corr  { background: var(--error); }
 .dot-recon { background: var(--success); }
 
 .img-card img {
   width: 100%;
   display: block;
-  min-height: 120px;
+  min-height: 130px;
   object-fit: cover;
   background: var(--surface2);
 }
 
 .img-card-foot {
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.9rem;
   font-family: var(--mono);
-  font-size: 0.58rem;
-  color: var(--muted);
+  font-size: 0.6rem;
+  color: var(--muted2);
+  background: var(--surface);
 }
 
 /* ─── Score panel ─── */
 .score-panel {
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
+  border-radius: var(--r);
+  padding: 1.5rem 1.75rem;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 1.5rem;
+  gap: 1.75rem;
   align-items: center;
+  box-shadow: var(--shadow);
   opacity: 0;
   animation: fadeUp 0.35s 0.25s forwards;
 }
 
 .score-ring {
   position: relative;
-  width: 88px; height: 88px;
+  width: 92px; height: 92px;
   flex-shrink: 0;
 }
 
-.score-ring svg { transform: rotate(-90deg); }
+.score-ring svg { transform: rotate(-90deg); display: block; }
 
 .score-ring-num {
   position: absolute;
@@ -608,7 +573,7 @@ header {
 
 .score-ring-val {
   font-family: var(--mono);
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -616,135 +581,89 @@ header {
 .score-ring-val.excellent { color: var(--success); }
 .score-ring-val.good      { color: var(--accent); }
 .score-ring-val.medium    { color: var(--warn); }
-.score-ring-val.poor      { color: var(--accent2); }
+.score-ring-val.poor      { color: var(--error); }
 
 .score-ring-sub {
   font-family: var(--mono);
   font-size: 0.55rem;
-  color: var(--muted);
+  color: var(--muted2);
   margin-top: 0.1rem;
 }
 
-.score-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.score-bar-label {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  margin-bottom: 0.2rem;
-}
+.score-meta { display: flex; flex-direction: column; gap: 0.65rem; }
+.score-bar-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
 
 .score-track {
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: var(--rp);
   overflow: hidden;
 }
 
 .score-fill {
   height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent3), var(--success));
+  border-radius: var(--rp);
+  background: linear-gradient(90deg, var(--accent), var(--success));
   transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
   width: 0;
 }
 
-.score-detail {
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  color: var(--muted);
-}
+.score-detail { font-size: 0.75rem; color: var(--muted); }
 
-.strategy-card {
-  text-align: right;
-}
-
-.strategy-label {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  margin-bottom: 0.4rem;
-}
+.strategy-card { text-align: right; }
+.strategy-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted2); margin-bottom: 0.4rem; letter-spacing: 0.08em; }
 
 .strategy-pill {
   display: inline-block;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--accent3);
-  border-radius: var(--radius);
+  padding: 0.35rem 0.8rem;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--rp);
   font-family: var(--mono);
   font-size: 0.65rem;
-  color: var(--accent3);
+  color: var(--accent);
 }
 
 /* ─── Breakdown ─── */
 .breakdown {
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.25rem;
+  border-radius: var(--r);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow);
   opacity: 0;
   animation: fadeUp 0.35s 0.33s forwards;
 }
 
 .breakdown-title {
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--accent);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
-.gauge-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.45rem;
-}
-
-.gauge-lbl {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  color: var(--muted);
-  width: 130px;
-  flex-shrink: 0;
-}
+.gauge-row { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.5rem; }
+.gauge-lbl { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); width: 130px; flex-shrink: 0; }
 
 .gauge-track {
   flex: 1;
-  height: 3px;
-  background: var(--border);
-  border-radius: 1.5px;
+  height: 5px;
+  background: var(--surface2);
+  border-radius: var(--rp);
   overflow: hidden;
 }
 
 .gauge-fill {
   height: 100%;
-  border-radius: 1.5px;
+  border-radius: var(--rp);
   transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
   width: 0;
 }
 
-.gauge-num {
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  color: var(--text);
-  width: 34px;
-  text-align: right;
-}
-
-.gauge-note {
-  font-size: 0.72rem;
-  color: var(--muted);
-  margin-top: 0.5rem;
-  font-style: italic;
-}
+.gauge-num { font-family: var(--mono); font-size: 0.6rem; color: var(--text); width: 34px; text-align: right; }
+.gauge-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.6rem; font-style: italic; }
 
 /* ─── Action bar ─── */
 .action-bar {
@@ -759,68 +678,62 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
-  background: transparent;
+  padding: 0.5rem 1rem;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--rp);
   color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.78rem;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.15s;
 }
 
-.act-btn:hover { border-color: var(--accent3); color: var(--accent3); }
-.act-btn.amber  { border-color: var(--accent);  color: var(--accent);  }
-.act-btn.amber:hover  { background: rgba(240,160,48,0.08); }
-.act-btn.violet { border-color: var(--accent3); color: var(--accent3); }
-.act-btn.violet:hover { background: rgba(107,140,218,0.08); }
+.act-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.act-btn.teal  { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.act-btn.teal:hover { background: var(--accent); color: #fff; }
 
 /* ─── Candidates ─── */
 .candidates {
-  background: var(--surface);
+  background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r);
   overflow: hidden;
+  box-shadow: var(--shadow);
   opacity: 0;
   animation: fadeUp 0.35s 0.48s forwards;
 }
 
 .candidates-head {
-  padding: 0.7rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--border);
   font-family: var(--mono);
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   color: var(--accent);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  background: var(--surface);
 }
 
-table.cand-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+table.cand-table { width: 100%; border-collapse: collapse; }
 
 .cand-table th {
   font-family: var(--mono);
-  font-size: 0.58rem;
+  font-size: 0.6rem;
   color: var(--muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.45rem 1.25rem;
+  padding: 0.5rem 1.25rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  background: var(--surface2);
+  background: var(--surface);
 }
 
 .cand-table td {
   font-family: var(--mono);
-  font-size: 0.7rem;
-  padding: 0.45rem 1.25rem;
-  border-bottom: 1px solid rgba(37,42,58,0.6);
+  font-size: 0.72rem;
+  padding: 0.5rem 1.25rem;
+  border-bottom: 1px solid var(--border);
   color: var(--text);
 }
 
@@ -828,45 +741,35 @@ table.cand-table {
 
 .cand-table tr.best td {
   color: var(--accent);
-  background: rgba(240,160,48,0.04);
+  background: var(--accent-bg);
+  font-weight: 600;
 }
 
 .score-tag {
   display: inline-block;
-  padding: 0.15rem 0.45rem;
-  border-radius: 3px;
-  font-size: 0.62rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--rp);
+  font-size: 0.65rem;
+  font-family: var(--mono);
 }
 
-.st-hi  { background: rgba(61,186,126,0.15); color: var(--success); }
-.st-mid { background: rgba(232,125,32,0.15);  color: var(--warn); }
-.st-lo  { background: rgba(217,79,79,0.15);   color: var(--accent2); }
+.st-hi  { background: var(--success-bg); color: var(--success); }
+.st-mid { background: var(--warn-bg);    color: var(--warn); }
+.st-lo  { background: var(--error-bg);   color: var(--error); }
 
 /* ─── Error ─── */
 .error-box {
-  border: 1px solid var(--accent2);
-  border-radius: var(--radius);
+  border: 1px solid var(--error);
+  border-radius: var(--r);
   padding: 1rem 1.25rem;
-  background: rgba(217,79,79,0.06);
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  color: var(--accent2);
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 0.82rem;
   animation: fadeUp 0.3s forwards;
   line-height: 1.6;
 }
 
-.error-box strong {
-  display: block;
-  margin-bottom: 0.3rem;
-  letter-spacing: 0.1em;
-  font-size: 0.65rem;
-}
-
-/* ─── Separator ─── */
-.sep {
-  border: none;
-  border-top: 1px solid var(--border);
-}
+.error-box strong { display: block; margin-bottom: 0.3rem; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; }
 
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
@@ -882,18 +785,18 @@ table.cand-table {
 <header>
   <div class="logo">
     <div class="logo-mark">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="#0c0e14" stroke-width="1.5" fill="none"/>
-        <circle cx="8" cy="8" r="2.5" fill="#0c0e14"/>
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <path d="M10 3L16 7V13L10 17L4 13V7L10 3Z" stroke="#fff" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+        <circle cx="10" cy="10" r="2.5" fill="#fff"/>
       </svg>
     </div>
     <div>
       <div class="logo-name">Forensic Recovery</div>
-      <div class="logo-ver">Image Reconstruction System</div>
+      <div class="logo-sub">Image Reconstruction System</div>
     </div>
   </div>
   <a href="Mask_editor.html" class="header-link">✏ Éditeur de masque</a>
-  <a href="technique.html"   class="header-link">Doc technique →</a>
+  <a href="technique.html"   class="header-link">Documentation →</a>
   <div class="api-badge">
     <div class="api-dot" id="api-dot"></div>
     <span id="api-label">Connexion…</span>
@@ -901,11 +804,12 @@ table.cand-table {
 </header>
 
 <div class="app">
+
   <!-- ─── Sidebar ─── -->
   <aside class="sidebar">
 
-    <div class="sidebar-section">
-      <div class="section-label">Image source</div>
+    <div>
+      <div class="section-lbl">Image source</div>
       <div class="dropzone" id="dropzone">
         <span class="dz-icon">⬡</span>
         <div class="dz-hint">
@@ -917,8 +821,8 @@ table.cand-table {
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="section-label">Type de dégradation</div>
+    <div>
+      <div class="section-lbl">Type de dégradation</div>
       <div class="corr-grid" id="corr-grid">
         <button class="corr-btn active" data-val="scratch_lines">Rayures</button>
         <button class="corr-btn" data-val="large_deleted_square">Carré supprimé</button>
@@ -931,8 +835,8 @@ table.cand-table {
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="section-label">Sévérité</div>
+    <div>
+      <div class="section-lbl">Sévérité</div>
       <div class="sev-row" id="sev-row">
         <button class="sev-btn"         data-sev="light">Light</button>
         <button class="sev-btn sev-medium" data-sev="medium">Medium</button>
@@ -940,38 +844,36 @@ table.cand-table {
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <div class="field-row">
-        <label>Mode d'exécution</label>
-        <select id="exec-mode">
-          <option value="assisted">Assisté — masque exact</option>
-          <option value="blind_basic">Aveugle basique</option>
-          <option value="blind_advanced">Aveugle avancé</option>
-        </select>
-      </div>
-
-      <div class="field-row">
-        <label>Stratégies testées — <span class="range-val" id="att-val">8</span></label>
-        <input type="range" id="max-attempts" min="2" max="11" value="8"
-               oninput="document.getElementById('att-val').textContent=this.value">
-      </div>
+    <div class="field">
+      <label>Mode d'exécution</label>
+      <select id="exec-mode">
+        <option value="assisted">Assisté — masque exact</option>
+        <option value="blind_basic">Aveugle basique</option>
+        <option value="blind_advanced">Aveugle avancé</option>
+      </select>
     </div>
 
-    <hr class="sep">
+    <div class="field">
+      <label>Stratégies testées — <span class="range-val" id="att-val">8</span></label>
+      <input type="range" id="max-attempts" min="2" max="11" value="8"
+             oninput="document.getElementById('att-val').textContent=this.value">
+    </div>
+
+    <hr>
 
     <button class="run-btn" id="run-btn" disabled>▶ Lancer l'analyse</button>
 
-    <hr class="sep">
+    <hr>
 
-    <div class="sidebar-section">
+    <div>
       <button class="mask-toggle" id="mask-toggle" onclick="toggleMaskMode()">
         <span>✏</span>
         <span>Dessiner un masque manuellement</span>
       </button>
 
-      <div class="mask-panel-inner" id="mask-panel">
+      <div class="mask-panel" id="mask-panel" style="margin-top:0.75rem">
         <div class="mask-hint">
-          Peignez en blanc la zone corrompue à reconstruire, puis lancez.
+          Peignez la zone corrompue à reconstruire.
         </div>
         <div class="mask-canvas-wrap" id="mask-canvas-wrap">
           <img id="mask-preview-img" alt="">
@@ -982,7 +884,7 @@ table.cand-table {
           <button class="mtool-btn"        id="mbtn-eraser" onclick="setTool('eraser')">Gomme</button>
           <button class="mtool-btn"                         onclick="clearMask()">Reset</button>
           <div class="brush-wrap">
-            <span>Taille</span>
+            Taille
             <input type="range" id="brush-sz" min="5" max="60" value="20"
                    oninput="document.getElementById('bsz-val').textContent=this.value">
             <span id="bsz-val">20</span>px
@@ -1004,23 +906,23 @@ table.cand-table {
   <!-- ─── Workspace ─── -->
   <main class="workspace" id="workspace">
     <div class="empty-state" id="empty-state">
-      <div class="es-icon">◈</div>
+      <span class="es-icon">◈</span>
       <div class="es-text">
         Aucune analyse en cours<br>
         Sélectionnez une image pour commencer
       </div>
     </div>
   </main>
+
 </div>
 
 <script>
 const API = 'http://localhost:8000';
-
 let selectedFile = null;
 let selectedCorruption = 'scratch_lines';
 let selectedSeverity = 'medium';
 
-/* ── API health ── */
+/* ── Health check ── */
 async function checkApi() {
   try {
     const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
@@ -1056,7 +958,6 @@ function setFile(f) {
   document.getElementById('run-btn').disabled = false;
   document.getElementById('mask-run-btn').disabled = false;
 
-  /* Prévisualisation dans le canvas masque */
   const reader = new FileReader();
   reader.onload = e => {
     const img = document.getElementById('mask-preview-img');
@@ -1068,7 +969,7 @@ function setFile(f) {
   reader.readAsDataURL(f);
 }
 
-/* ── Corruption ── */
+/* ── Corruption buttons ── */
 document.getElementById('corr-grid').addEventListener('click', e => {
   const btn = e.target.closest('.corr-btn');
   if (!btn) return;
@@ -1080,9 +981,7 @@ document.getElementById('corr-grid').addEventListener('click', e => {
 /* ── Severity ── */
 document.querySelectorAll('.sev-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.sev-btn').forEach(b => {
-      b.className = 'sev-btn';
-    });
+    document.querySelectorAll('.sev-btn').forEach(b => b.className = 'sev-btn');
     selectedSeverity = btn.dataset.sev;
     btn.classList.add(`sev-${selectedSeverity}`);
   });
@@ -1092,8 +991,8 @@ document.querySelectorAll('.sev-btn').forEach(btn => {
 const LOADER_MSGS = [
   'Chargement de l\'image…', 'Application de la dégradation…', 'Génération du masque…',
   'Inpainting r3…', 'Inpainting r5…', 'Débruitage médian…', 'Bilatéral…',
-  'Défloutage…', 'Réparation de blocs…', 'Reconstruction hybride…',
-  'Calcul PSNR/SSIM…', 'Sélection du meilleur candidat…', 'Génération du rapport…',
+  'Défloutage…', 'Reconstruction hybride…', 'Calcul PSNR/SSIM…',
+  'Sélection du meilleur candidat…', 'Génération du rapport…',
 ];
 let ldrIdx = 0, ldrTimer = null;
 
@@ -1120,7 +1019,7 @@ document.getElementById('run-btn').addEventListener('click', async () => {
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   startLoader();
-  setWorkspace(`<div class="empty-state"><div class="es-icon">◈</div><div class="es-text">Analyse en cours…</div></div>`);
+  setWS(`<div class="empty-state"><span class="es-icon">◈</span><div class="es-text">Analyse en cours…</div></div>`);
 
   const fd = new FormData();
   fd.append('image', selectedFile);
@@ -1131,13 +1030,13 @@ document.getElementById('run-btn').addEventListener('click', async () => {
   fd.append('seed', '42');
 
   try {
-    const resp = await fetch(`${API}/pipeline/corrupt-and-repair`, { method: 'POST', body: fd });
+    const r = await fetch(`${API}/pipeline/corrupt-and-repair`, { method: 'POST', body: fd });
     stopLoader();
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
       showError(err.detail || 'Erreur inconnue');
     } else {
-      renderResults(await resp.json());
+      renderResults(await r.json());
     }
   } catch (e) {
     stopLoader();
@@ -1147,45 +1046,24 @@ document.getElementById('run-btn').addEventListener('click', async () => {
   }
 });
 
-/* ── Helpers ── */
-function setWorkspace(html) {
-  document.getElementById('workspace').innerHTML = html;
-}
+function setWS(html) { document.getElementById('workspace').innerHTML = html; }
+function showError(msg) { setWS(`<div class="error-box"><strong>// ERREUR</strong>${esc(msg)}</div>`); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function scoreClass(v) { if (v>=80) return 'excellent'; if (v>=60) return 'good'; if (v>=40) return 'medium'; return 'poor'; }
+function tagClass(v)   { if (v>=70) return 'st-hi'; if (v>=40) return 'st-mid'; return 'st-lo'; }
 
-function showError(msg) {
-  setWorkspace(`<div class="error-box"><strong>// ERREUR</strong>${esc(msg)}</div>`);
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function scoreClass(v) {
-  if (v >= 80) return 'excellent';
-  if (v >= 60) return 'good';
-  if (v >= 40) return 'medium';
-  return 'poor';
-}
-
-function tagClass(v) {
-  if (v >= 70) return 'st-hi';
-  if (v >= 40) return 'st-mid';
-  return 'st-lo';
-}
-
-/* ── Score ring SVG ── */
+/* ── Score ring ── */
 function renderRing(score, cls) {
-  const pct = Math.min(100, Math.max(0, score));
-  const r = 36, cx = 44, cy = 44;
+  const pct  = Math.min(100, Math.max(0, score));
+  const r    = 37, cx = 46, cy = 46;
   const circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
-  const color = { excellent: 'var(--success)', good: 'var(--accent)', medium: 'var(--warn)', poor: 'var(--accent2)' }[cls];
-  return `
-  <div class="score-ring">
-    <svg width="88" height="88" viewBox="0 0 88 88">
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
-        stroke="${color}" stroke-width="5"
+  const colors = { excellent: '#4d7c5f', good: '#0d9488', medium: '#7d6b2f', poor: '#9b4444' };
+  const c = colors[cls];
+  return `<div class="score-ring">
+    <svg width="92" height="92" viewBox="0 0 92 92">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e4e0d8" stroke-width="6"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="6"
         stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
         stroke-linecap="round"/>
     </svg>
@@ -1198,30 +1076,29 @@ function renderRing(score, cls) {
 
 /* ── Breakdown gauges ── */
 function renderBreakdown(data) {
-  const best = (data.candidates || []).find(c => c.strategy === data.selected_repair_strategy) || {};
+  const best = (data.candidates||[]).find(c=>c.strategy===data.selected_repair_strategy) || {};
   const bd = best.score_breakdown;
   if (!bd) return '';
-
   const mode = best.mode || 'supervised';
   const isSup = mode === 'supervised';
 
   const gauges = isSup ? [
-    { label: 'SSIM global',       val: bd.ssim_component,      max: 60,  color: 'var(--accent3)' },
-    { label: 'PSNR global',       val: bd.psnr_component,      max: 20,  color: 'var(--accent)' },
-    { label: 'Gain SSIM',         val: bd.gain_ssim_component, max: 30,  color: 'var(--success)' },
-    { label: 'Gain PSNR',         val: bd.gain_psnr_component, max: 20,  color: 'var(--success)' },
-    { label: 'Zone reconstruite', val: bd.mask_region_score,   max: 100, color: 'var(--warn)' },
-    { label: 'Hors zone',         val: bd.outside_score,       max: 100, color: 'var(--accent3)' },
+    { label:'SSIM global',       val:bd.ssim_component,      max:60,  color:'#3b82f6' },
+    { label:'PSNR global',       val:bd.psnr_component,      max:20,  color:'#0d9488' },
+    { label:'Gain SSIM',         val:bd.gain_ssim_component, max:30,  color:'#4d7c5f' },
+    { label:'Gain PSNR',         val:bd.gain_psnr_component, max:20,  color:'#4d7c5f' },
+    { label:'Zone reconstruite', val:bd.mask_region_score,   max:100, color:'#7d6b2f' },
+    { label:'Hors zone',         val:bd.outside_score,       max:100, color:'#3b82f6' },
   ] : [
-    { label: 'Netteté',           val: bd.sharpness_component, max: 25,  color: 'var(--accent)' },
-    { label: 'Bruit résiduel',    val: bd.noise_component,     max: 20,  color: 'var(--accent3)' },
-    { label: 'Contours',          val: bd.edge_component,      max: 20,  color: 'var(--success)' },
-    { label: 'Cohérence couleur', val: bd.color_component,     max: 15,  color: 'var(--warn)' },
-    { label: 'Entropie locale',   val: bd.entropy_component,   max: 10,  color: 'var(--accent3)' },
-    { label: 'Artefacts blocs',   val: bd.artifact_component,  max: 10,  color: 'var(--muted)' },
+    { label:'Netteté',           val:bd.sharpness_component, max:25, color:'#0d9488' },
+    { label:'Bruit résiduel',    val:bd.noise_component,     max:20, color:'#3b82f6' },
+    { label:'Contours',          val:bd.edge_component,      max:20, color:'#4d7c5f' },
+    { label:'Cohérence couleur', val:bd.color_component,     max:15, color:'#7d6b2f' },
+    { label:'Entropie locale',   val:bd.entropy_component,   max:10, color:'#9b6744' },
+    { label:'Artefacts blocs',   val:bd.artifact_component,  max:10, color:'#a09589' },
   ];
 
-  const rows = gauges.filter(g => g.val != null).map(g => {
+  const rows = gauges.filter(g=>g.val!=null).map(g => {
     const pct = Math.min(100, Math.max(0, (g.val / g.max) * 100));
     return `<div class="gauge-row">
       <div class="gauge-lbl">${g.label}</div>
@@ -1237,7 +1114,7 @@ function renderBreakdown(data) {
     : `Mode <strong style="color:var(--warn)">aveugle</strong> — score heuristique sans original.`;
 
   return `<div class="breakdown">
-    <div class="breakdown-title">// Score détaillé (${mode})</div>
+    <div class="breakdown-title">Décomposition du score (${mode})</div>
     ${rows}
     <div class="gauge-note">${note}</div>
   </div>`;
@@ -1249,30 +1126,29 @@ function renderResults(data) {
   const strategy = data.selected_repair_strategy || '—';
   const retries  = data.retry_count ?? 0;
   const cands    = data.candidates || [];
-  const reportPath = data.report_path || '';
-  const runIdM = reportPath.match(/report_([a-f0-9]+)\.json/);
-  const runId = runIdM ? runIdM[1] : null;
+  const runIdM   = (data.report_path||'').match(/report_([a-f0-9]+)\.json/);
+  const runId    = runIdM ? runIdM[1] : null;
 
   const origUrl  = `${API}/files/serve?path=${encodeURIComponent(data.original_image)}`;
   const corrUrl  = `${API}/files/serve?path=${encodeURIComponent(data.corrupted_image)}`;
   const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
-  const sc = scoreClass(score);
+  const sc       = scoreClass(score);
 
   const triptych = `
   <div class="triptych">
     <div class="img-card">
       <div class="img-card-head"><span class="img-dot dot-orig"></span>Originale</div>
-      <img src="${origUrl}" alt="Originale" onerror="this.style.opacity=0.2">
+      <img src="${origUrl}" alt="Originale" onerror="this.style.opacity=0.3">
       <div class="img-card-foot">Image uploadée</div>
     </div>
     <div class="img-card">
       <div class="img-card-head"><span class="img-dot dot-corr"></span>Corrompue</div>
-      <img src="${corrUrl}" alt="Corrompue" onerror="this.style.opacity=0.2">
+      <img src="${corrUrl}" alt="Corrompue" onerror="this.style.opacity=0.3">
       <div class="img-card-foot">${esc(data.corruption_type)} · ${esc(selectedSeverity)}</div>
     </div>
     <div class="img-card">
       <div class="img-card-head"><span class="img-dot dot-recon"></span>Reconstruite</div>
-      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=0.2">
+      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=0.3">
       <div class="img-card-foot">Meilleure stratégie</div>
     </div>
   </div>`;
@@ -1293,41 +1169,37 @@ function renderResults(data) {
     </div>
   </div>`;
 
-  const breakdown = renderBreakdown(data);
-
-  const editorUrl = `Mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
-  const actionBar = `<div class="action-bar">
-    <a class="act-btn violet" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
-    ${runId ? `<a class="act-btn amber" href="${API}/reports/pdf/${runId}"  target="_blank" download>↓ PDF</a>` : ''}
-    ${runId ? `<a class="act-btn violet" href="${API}/reports/html/${runId}" target="_blank">⊞ HTML</a>` : ''}
+  const breakdown  = renderBreakdown(data);
+  const editorUrl  = `Mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
+  const actionBar  = `<div class="action-bar">
+    <a class="act-btn" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
+    ${runId ? `<a class="act-btn teal" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
+    ${runId ? `<a class="act-btn" href="${API}/reports/html/${runId}" target="_blank">⊞ HTML</a>` : ''}
   </div>`;
 
   const candRows = cands.map(c => {
     const isBest = c.strategy === strategy;
-    const s = parseFloat(c.score || 0).toFixed(1);
-    const psnr = c.psnr != null ? parseFloat(c.psnr).toFixed(1) + ' dB' : '—';
+    const s    = parseFloat(c.score||0).toFixed(1);
+    const psnr = c.psnr != null ? parseFloat(c.psnr).toFixed(1)+' dB' : '—';
     const ssim = c.ssim != null ? parseFloat(c.ssim).toFixed(3) : '—';
-    return `<tr class="${isBest ? 'best' : ''}">
-      <td>${isBest ? '▶ ' : ''}${esc(c.strategy)}</td>
+    return `<tr class="${isBest?'best':''}">
+      <td>${isBest?'▶ ':''}${esc(c.strategy)}</td>
       <td><span class="score-tag ${tagClass(parseFloat(s))}">${s}</span></td>
-      <td>${psnr}</td>
-      <td>${ssim}</td>
-      <td style="color:var(--muted)">${c.mode || '—'}</td>
+      <td>${psnr}</td><td>${ssim}</td>
+      <td style="color:var(--muted2)">${c.mode||'—'}</td>
     </tr>`;
   }).join('');
 
   const candidates = `
   <div class="candidates">
-    <div class="candidates-head">// Candidats de reconstruction (${cands.length})</div>
+    <div class="candidates-head">Candidats de reconstruction (${cands.length})</div>
     <table class="cand-table">
-      <thead><tr>
-        <th>Stratégie</th><th>Score</th><th>PSNR</th><th>SSIM</th><th>Mode</th>
-      </tr></thead>
+      <thead><tr><th>Stratégie</th><th>Score</th><th>PSNR</th><th>SSIM</th><th>Mode</th></tr></thead>
       <tbody>${candRows}</tbody>
     </table>
   </div>`;
 
-  setWorkspace(triptych + scorePanel + breakdown + actionBar + candidates);
+  setWS(triptych + scorePanel + breakdown + actionBar + candidates);
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const fill = document.getElementById('score-fill');
@@ -1337,8 +1209,7 @@ function renderResults(data) {
 
 /* ── Mask mode ── */
 let maskNatW = 0, maskNatH = 0;
-let maskTool = 'brush';
-let maskPainting = false;
+let maskTool = 'brush', maskPainting = false;
 
 function toggleMaskMode() {
   const panel = document.getElementById('mask-panel');
@@ -1351,112 +1222,106 @@ function toggleMaskMode() {
 const maskCanvas = document.getElementById('mask-canvas');
 const maskCtx    = maskCanvas.getContext('2d');
 
-maskCanvas.addEventListener('mousedown',  e => { maskPainting = true; maskDraw(e); });
+maskCanvas.addEventListener('mousedown',  e => { maskPainting=true; maskDraw(e); });
 maskCanvas.addEventListener('mousemove',  maskDraw);
-maskCanvas.addEventListener('mouseup',    () => { maskPainting = false; });
-maskCanvas.addEventListener('mouseleave', () => { maskPainting = false; });
-maskCanvas.addEventListener('touchstart', e => { maskPainting = true; maskDraw(e); }, { passive: false });
-maskCanvas.addEventListener('touchmove',  maskDraw, { passive: false });
-maskCanvas.addEventListener('touchend',   () => { maskPainting = false; });
+maskCanvas.addEventListener('mouseup',    () => { maskPainting=false; });
+maskCanvas.addEventListener('mouseleave', () => { maskPainting=false; });
+maskCanvas.addEventListener('touchstart', e => { maskPainting=true; maskDraw(e); }, {passive:false});
+maskCanvas.addEventListener('touchmove',  maskDraw, {passive:false});
+maskCanvas.addEventListener('touchend',   () => { maskPainting=false; });
 
 function maskGetPos(e) {
   const r = maskCanvas.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : e;
   return {
-    x: (t.clientX - r.left) * (maskCanvas.width  / r.width),
-    y: (t.clientY - r.top)  * (maskCanvas.height / r.height),
+    x: (t.clientX-r.left)*(maskCanvas.width/r.width),
+    y: (t.clientY-r.top)*(maskCanvas.height/r.height),
   };
 }
 
 function maskDraw(e) {
   if (!maskPainting) return;
   e.preventDefault();
-  const { x, y } = maskGetPos(e);
+  const {x,y} = maskGetPos(e);
   const sz = parseInt(document.getElementById('brush-sz').value);
-  maskCtx.globalCompositeOperation = maskTool === 'eraser' ? 'destination-out' : 'source-over';
-  maskCtx.fillStyle = 'rgba(255,255,255,0.5)';
+  maskCtx.globalCompositeOperation = maskTool==='eraser' ? 'destination-out' : 'source-over';
+  maskCtx.fillStyle = 'rgba(13,148,136,0.55)';
   maskCtx.beginPath();
-  maskCtx.arc(x, y, sz / 2, 0, Math.PI * 2);
+  maskCtx.arc(x, y, sz/2, 0, Math.PI*2);
   maskCtx.fill();
 }
 
 function setTool(t) {
   maskTool = t;
-  document.getElementById('mbtn-brush').classList.toggle('active', t === 'brush');
-  document.getElementById('mbtn-eraser').classList.toggle('active', t === 'eraser');
+  document.getElementById('mbtn-brush').classList.toggle('active', t==='brush');
+  document.getElementById('mbtn-eraser').classList.toggle('active', t==='eraser');
 }
 
-function clearMask() {
-  maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-}
+function clearMask() { maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height); }
 
-/* Masque binaire aux dimensions réelles de l'image */
+/* Masque binaire aux dimensions réelles — imageSmoothingEnabled=false obligatoire */
 function buildBinaryMask() {
   const tmp = document.createElement('canvas');
-  tmp.width  = maskCanvas.width;
-  tmp.height = maskCanvas.height;
-  const ctx = tmp.getContext('2d');
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, tmp.width, tmp.height);
+  tmp.width=maskCanvas.width; tmp.height=maskCanvas.height;
+  const ctx=tmp.getContext('2d');
+  ctx.fillStyle='black';
+  ctx.fillRect(0,0,tmp.width,tmp.height);
 
-  const src = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-  const dst = ctx.getImageData(0, 0, tmp.width, tmp.height);
-  for (let i = 0; i < src.data.length; i += 4) {
-    if (src.data[i + 3] > 10) {
-      dst.data[i] = 255; dst.data[i+1] = 255; dst.data[i+2] = 255; dst.data[i+3] = 255;
+  const src=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
+  const dst=ctx.getImageData(0,0,tmp.width,tmp.height);
+  for (let i=0;i<src.data.length;i+=4) {
+    if (src.data[i+3]>10) {
+      dst.data[i]=255; dst.data[i+1]=255; dst.data[i+2]=255; dst.data[i+3]=255;
     }
   }
-  ctx.putImageData(dst, 0, 0);
+  ctx.putImageData(dst,0,0);
 
-  if (maskNatW > 0 && maskNatH > 0 && (tmp.width !== maskNatW || tmp.height !== maskNatH)) {
-    const real = document.createElement('canvas');
-    real.width  = maskNatW;
-    real.height = maskNatH;
-    const rctx = real.getContext('2d');
-    rctx.imageSmoothingEnabled = false;
-    rctx.drawImage(tmp, 0, 0, maskNatW, maskNatH);
+  if (maskNatW>0 && maskNatH>0 && (tmp.width!==maskNatW||tmp.height!==maskNatH)) {
+    const real=document.createElement('canvas');
+    real.width=maskNatW; real.height=maskNatH;
+    const rctx=real.getContext('2d');
+    rctx.imageSmoothingEnabled=false;
+    rctx.drawImage(tmp,0,0,maskNatW,maskNatH);
     return real;
   }
   return tmp;
 }
 
 const MASK_MSGS = [
-  'Préparation du masque…', 'Envoi au serveur…', 'Inpainting r3…',
-  'Inpainting r5…', 'Débruitage médian…', 'Bilatéral…',
-  'Reconstruction hybride…', 'Calcul des scores…', 'Sélection…',
+  'Préparation du masque…','Envoi au serveur…','Inpainting r3…','Inpainting r5…',
+  'Débruitage médian…','Bilatéral…','Hybride…','Calcul des scores…','Sélection…',
 ];
 
 async function runWithMask() {
   if (!selectedFile) return;
-  const pixels = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height).data;
-  let white = 0;
-  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 10) white++;
-  if (white === 0) { alert('Le masque est vide — peignez la zone à reconstruire.'); return; }
+  const px=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height).data;
+  let w=0; for (let i=3;i<px.length;i+=4) if (px[i]>10) w++;
+  if (w===0) { alert('Le masque est vide — peignez la zone à reconstruire.'); return; }
 
-  const btn = document.getElementById('mask-run-btn');
-  btn.disabled = true;
+  const btn=document.getElementById('mask-run-btn');
+  btn.disabled=true;
   startLoader(MASK_MSGS);
 
-  const maskBlob = await new Promise(res => buildBinaryMask().toBlob(res, 'image/png'));
-  const fd = new FormData();
-  fd.append('image', selectedFile, selectedFile.name);
-  fd.append('mask',  maskBlob, 'mask.png');
-  fd.append('max_attempts', document.getElementById('max-attempts').value);
+  const maskBlob=await new Promise(res=>buildBinaryMask().toBlob(res,'image/png'));
+  const fd=new FormData();
+  fd.append('image',selectedFile,selectedFile.name);
+  fd.append('mask',maskBlob,'mask.png');
+  fd.append('max_attempts',document.getElementById('max-attempts').value);
 
   try {
-    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, { method: 'POST', body: fd });
+    const r=await fetch(`${API}/reconstruction/repair-with-mask`,{method:'POST',body:fd});
     stopLoader();
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-      showError(err.detail || 'Erreur inconnue');
+    if (!r.ok) {
+      const err=await r.json().catch(()=>({detail:r.statusText}));
+      showError(err.detail||'Erreur inconnue');
     } else {
-      renderResults(await resp.json());
+      renderResults(await r.json());
     }
   } catch (e) {
     stopLoader();
-    showError('Impossible de contacter l\'API sur ' + API);
+    showError('Impossible de contacter l\'API sur '+API);
   } finally {
-    btn.disabled = false;
+    btn.disabled=false;
   }
 }
 </script>
