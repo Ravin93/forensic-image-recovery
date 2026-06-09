@@ -455,6 +455,23 @@ header {
 
 hr { border: none; border-top: 1px solid var(--border); }
 
+/* ─── Iteration button ─── */
+.iter-btn {
+  width: 100%;
+  padding: 0.65rem;
+  background: var(--accent-bg);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r);
+  color: var(--accent-dk);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s;
+  margin-top: 0.25rem;
+}
+.iter-btn:hover { background: var(--accent); color: #fff; }
+
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 200px 1fr 240px; }
@@ -502,7 +519,8 @@ hr { border: none; border-top: 1px solid var(--border); }
       <span>Workflow</span><br>
       1. Charger une image corrompue<br>
       2. Peindre la zone abîmée<br>
-      3. Lancer la reconstruction
+      3. Lancer la reconstruction<br>
+      4. ↩ Affiner sur le résultat
     </div>
 
     <hr>
@@ -592,6 +610,7 @@ let imgFile  = null;
 let imgNatW  = 0, imgNatH = 0;
 let overlayOpacity = 0.5;
 let preloadedPath  = null;
+let lastReconPath  = null;
 
 const canvasImg  = document.getElementById('canvas-image');
 const canvasMask = document.getElementById('canvas-mask');
@@ -897,6 +916,7 @@ function showError(msg) {
 }
 
 function renderResults(data) {
+  lastReconPath   = data.reconstructed_image;
   const score    = parseFloat(data.score || 0).toFixed(1);
   const strategy = data.selected_repair_strategy || '—';
   const retries  = data.retry_count ?? 0;
@@ -930,7 +950,39 @@ function renderResults(data) {
     <div>
       <div class="cands-title">Top candidats</div>
       ${cands}
-    </div>`;
+    </div>
+    <button class="iter-btn" onclick="useResultAsSource()">
+      ↩ Affiner — utiliser ce résultat comme nouvelle source
+    </button>`;
+}
+
+/* ── Itération : charger le résultat reconstruit comme nouvelle image source ── */
+async function useResultAsSource() {
+  if (!lastReconPath) return;
+  const url   = `${API}/files/serve?path=${encodeURIComponent(lastReconPath)}`;
+  const fname = lastReconPath.split('/').pop();
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    imgNatW = img.width;
+    imgNatH = img.height;
+    resizeCanvases();
+    ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+    resetMask();
+
+    preloadedPath = lastReconPath;
+    imgFile = { _preloaded: true, name: fname };
+
+    document.getElementById('dz-file').textContent = '↩ ' + fname + ' (itération)';
+    dropzone.classList.add('loaded');
+    document.getElementById('empty-canvas').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('empty-results').style.display = 'block';
+    document.getElementById('results-content').innerHTML = '';
+  };
+  img.onerror = () => showError("Impossible de charger l'image reconstruite pour l'itération.");
+  img.src = url;
 }
 </script>
 </body>
