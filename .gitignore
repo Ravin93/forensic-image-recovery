@@ -3,20 +3,42 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pycache
 
 # Virtual env
 venv/
+.venv/
 .env
+.env.local
 
-# Mac
+# Mac / OS
 .DS_Store
+Thumbs.db
 
-# Data (IMPORTANT)
-data/dumps/*
-data/extracted/*
+# ── Données générées à l'exécution (JAMAIS en git) ──────────────────────────
+# Seuls data/dumps/test_dataset/ et data/examples/ sont versionnés.
+data/input/*
 data/corrupted/*
 data/reconstructed/*
+data/masks/*
 data/reports/*
+data/analyses/*
+data/dumps/*
+data/extracted/*
+data/logs/*
+
+# Exceptions : garder les dossiers vides + dataset de démo
+!data/input/.gitkeep
+!data/corrupted/.gitkeep
+!data/reconstructed/.gitkeep
+!data/masks/.gitkeep
+!data/reports/.gitkeep
+!data/analyses/.gitkeep
+!data/dumps/.gitkeep
+!data/extracted/.gitkeep
+!data/logs/.gitkeep
+!data/dumps/test_dataset/
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Logs
 *.log
@@ -27,3 +49,7 @@ data/reports/*
 # VSCode / IDE
 .vscode/
 .idea/
+
+# Rapports locaux générés
+*.docx~
+rapport_technique_local.docx

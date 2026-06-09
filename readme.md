@@ -1,11 +1,13 @@
 # Forensic Image Recovery
 
 > Système forensique de reconstruction d'images corrompues — ESGI Projet Annuel 2026
+>
+> **Ravin THILAGARASA & Richard PAMPANA** — Cybersécurité 4ème année
 
-[![Tests](https://img.shields.io/badge/tests-398%20passed-00e096)](tests/)
-[![Python](https://img.shields.io/badge/python-3.13-00e5ff)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-a259ff)](https://fastapi.tiangolo.com)
-[![License](https://img.shields.io/badge/license-MIT-muted)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-398%20passed-brightgreen)](tests/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688)](https://fastapi.tiangolo.com)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ---
 
@@ -14,12 +16,15 @@
 **Forensic Image Recovery** est un pipeline complet de reconstruction forensique d'images numériques corrompues. Le système simule des dégradations réalistes (perte de secteur, rayures, barres, bruit, blocs supprimés), puis applique automatiquement jusqu'à 14 stratégies de reconstruction pour sélectionner la meilleure par scoring PSNR/SSIM.
 
 Le projet couvre l'intégralité du cycle forensique :
-- Corruption simulée (15 types)
-- Reconstruction multi-stratégies avec moteur adaptatif
-- Scoring supervisé et aveugle avec décomposition détaillée
-- Analyse forensique avancée (EXIF, LSB, copy-move, PRNU, clustering)
-- Rapports JSON / PDF / HTML avec chaîne de conservation légale
-- Interface web dark + API REST complète
+- **Carving JPEG** depuis dumps binaires bruts (détection SOI/EOI, assemblage de fragments)
+- **Corruption simulée** (15 types : rayures, barres, bruit, zones supprimées, blocs JPEG…)
+- **Reconstruction multi-stratégies** avec moteur adaptatif (14 algorithmes, sélection par score)
+- **Scoring supervisé et aveugle** avec décomposition détaillée PSNR/SSIM
+- **Analyse forensique avancée** (EXIF, LSB, copy-move, PRNU, clustering, OCR)
+- **Rapports JSON / PDF / HTML** avec chaîne de conservation légale (chain of custody SHA-256)
+- **Interface web + API REST** complète (25+ endpoints, Swagger)
+
+> **398 tests, 0 échec.** Le projet est couvert de bout en bout : pipeline, sécurité, scoring, modules forensiques, E2E.
 
 ---
 
@@ -268,12 +273,41 @@ pytest -v --tb=short
 
 ---
 
-## Génération de datasets forensiques
+## Démo Carving — dump binaire → extraction JPEG
+
+Scénario 2 du projet : récupérer des images JPEG depuis un dump binaire brut (secteur disque, image mémoire, flux réseau).
 
 ```bash
-# Générer un dataset fragmenté avec perte et bruit
+# Démo complète en autonome (génère le dump, carve, valide)
+python scripts/demo_dump_recovery.py --no-api
+
+# Avec votre propre image source
+python scripts/demo_dump_recovery.py --source chemin/photo.jpeg --no-api
+
+# Avec reconstruction API (nécessite le serveur en cours)
+python scripts/demo_dump_recovery.py --source chemin/photo.jpeg
+```
+
+Sortie attendue :
+```
+[1/4] Génération du dump binaire synthétique
+  ✓ Dump généré : data/dumps/test_dataset/demo.bin  (309,507 octets)
+  ✓ 3 images JPEG insérées parmi des octets aléatoires
+
+[2/4] Carving JPEG (détection marqueurs SOI/EOI)
+  ✓ 3 fichier(s) JPEG extrait(s) en 0.15s
+
+[3/4] Validation des JPEG extraits
+  ✓ JPEG #1  298,807 octets  offset=649  sha256=ac836236…  2400×1599px
+  ✓ Recall parfait : 3/3 images récupérées
+```
+
+**Limites documentées du carving** : reconstruction basée sur signatures SOI (`\xff\xd8`) / EOI (`\xff\xd9`) uniquement. Ne reconstruit pas de fragments arbitrairement découpés — assemblage heuristique par overlap scoring. Perspective d'amélioration : support PNG/BMP, streaming sur très grands dumps.
+
+```bash
+# Générer un dataset fragmenté avec perte et bruit (scénario avancé)
 python scripts/generate_fragmented_dataset.py \
-    --images data/input/photo.jpeg \
+    --images data/dumps/test_dataset/demo_source.jpeg \
     --output data/dumps/test_dataset \
     --fragments 6 \
     --shuffle \
@@ -281,7 +315,59 @@ python scripts/generate_fragmented_dataset.py \
     --noise
 ```
 
-Génère : dump binaire synthétique + `ground_truth.json` avec SHA-256, offsets, métadonnées de chaque fragment.
+---
+
+## Correspondance rapport technique ↔ code
+
+Matrice de traçabilité entre les exigences du rapport ESGI validé et l'implémentation.
+
+| Élément du rapport | État | Preuve dans le code |
+|---|---|---|
+| API REST FastAPI | ✅ Implémenté | `app/api/routes/`, `/docs` |
+| 15 types de corruption | ✅ Implémenté | `app/modules/corruption/simulator.py`, tests |
+| 14 stratégies de reconstruction | ✅ Implémenté | `app/modules/reconstruction/` |
+| Scoring PSNR/SSIM supervisé | ✅ Implémenté | `app/modules/evaluation/metrics.py` |
+| Scoring aveugle (heuristique) | ✅ Implémenté | `app/modules/evaluation/blind_scorer.py` |
+| Rapports PDF/HTML/JSON | ✅ Implémenté | `app/modules/reporting/` |
+| Chain of custody SHA-256 | ✅ Implémenté | `app/modules/reporting/legal_report.py` |
+| Carving JPEG depuis dumps | ✅ Implémenté (POC) | `app/modules/carving/extractor.py` |
+| Assemblage de fragments | ✅ Implémenté (POC) | `app/modules/carving/fragment_assembler.py` |
+| Analyses persistantes async | ✅ Implémenté | `app/modules/analysis/`, `/analysis/*` |
+| Sécurité magic bytes H1 | ✅ Implémenté | `app/core/upload_validator.py` |
+| Audit JSONL H4 | ✅ Implémenté | `app/core/audit_logger.py` |
+| Nettoyage auto H3 | ✅ Implémenté | `app/core/file_cleanup.py` |
+| Interface web 3 pages | ✅ Implémenté | `forensic_ui.html`, `Mask_editor.html`, `technique.html` |
+| Reconstruction fragments complexes | ⚠️ POC limité | Heuristique overlap — perspective d'amélioration |
+| LaMa deep inpainting | ⚠️ Préparé, non production | `app/modules/ai/lama_adapter.py` (LAMA_ENABLED=true) |
+| Chargement RAW DNG/CR2 | ⚠️ Optionnel | `app/modules/raw/raw_loader.py` (rawpy requis) |
+| CLI / run.py | ❌ Non implémenté | `run.py` vide — hors périmètre soutenance |
+
+### Fonctionnalités POC / limitées — déclaration explicite
+
+Ces éléments sont intentionnellement présentés comme POC dans le projet :
+
+- **Carving de fragments complexes** : reconstruction basée sur signatures SOI/EOI + overlap heuristique. Ne reconstruit pas de JPEG arbitrairement fragmentés à l'octet près. Preuve de concept avec recall 3/3 sur dump synthétique.
+- **LaMa deep inpainting** : intégration préparée mais non activée en production. Nécessite GPU + modèle pré-entraîné + validation humaine obligatoire avant usage forensique.
+- **Scoring aveugle** : estimation heuristique (netteté, bruit, gradient). Proxy de qualité, pas une mesure objective. Le rapport supervisé (PSNR/SSIM avec original) reste la référence.
+
+---
+
+## Scénario de démo recommandé
+
+Pour une démo de soutenance fiable et reproductible, dans cet ordre :
+
+| Étape | Action | Ce qu'on montre |
+|---|---|---|
+| 1 | `uvicorn app.main:app --reload` | Démarrage API, log de nettoyage auto |
+| 2 | Ouvrir `forensic_ui.html` | Interface web, pas de framework |
+| 3 | Uploader une photo JPEG | Validation magic bytes |
+| 4 | Choisir `scratch_lines` / `medium` / `assisted` | Corruption contrôlée |
+| 5 | Lancer l'analyse | 14 stratégies testées, score PSNR/SSIM |
+| 6 | Voir le triptyque + score | Comparaison visuelle original/corrompu/reconstruit |
+| 7 | Télécharger rapport PDF | Chain of custody, SHA-256 |
+| 8 | `python scripts/demo_dump_recovery.py --no-api` | Carving forensique 2nd scénario |
+
+**À éviter en démo** : `large_deleted_square heavy` — c'est la limite documentée de l'inpainting OpenCV (>15% de surface), le résultat sera médiocre.
 
 ---
 
