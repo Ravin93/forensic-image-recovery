@@ -327,7 +327,7 @@ Matrice de traçabilité entre les exigences du rapport ESGI validé et l'implé
 | 15 types de corruption | ✅ Implémenté | `app/modules/corruption/simulator.py`, tests |
 | 14 stratégies de reconstruction | ✅ Implémenté | `app/modules/reconstruction/` |
 | Scoring PSNR/SSIM supervisé | ✅ Implémenté | `app/modules/evaluation/metrics.py` |
-| Scoring aveugle (heuristique) | ✅ Implémenté | `app/modules/evaluation/blind_scorer.py` |
+| Scoring aveugle (heuristique) | ✅ Implémenté | `app/modules/evaluation/metrics.py` (`compute_blind_score()`) |
 | Rapports PDF/HTML/JSON | ✅ Implémenté | `app/modules/reporting/` |
 | Chain of custody SHA-256 | ✅ Implémenté | `app/modules/reporting/legal_report.py` |
 | Carving JPEG depuis dumps | ✅ Implémenté (POC) | `app/modules/carving/extractor.py` |
@@ -336,7 +336,7 @@ Matrice de traçabilité entre les exigences du rapport ESGI validé et l'implé
 | Sécurité magic bytes H1 | ✅ Implémenté | `app/core/upload_validator.py` |
 | Audit JSONL H4 | ✅ Implémenté | `app/core/audit_logger.py` |
 | Nettoyage auto H3 | ✅ Implémenté | `app/core/file_cleanup.py` |
-| Interface web 3 pages | ✅ Implémenté | `forensic_ui.html`, `Mask_editor.html`, `technique.html` |
+| Interface web 3 pages | ✅ Implémenté | `forensic_ui.html`, `mask_editor.html`, `technique.html` |
 | Reconstruction fragments complexes | ⚠️ POC limité | Heuristique overlap — perspective d'amélioration |
 | LaMa deep inpainting | ⚠️ Préparé, non production | `app/modules/ai/lama_adapter.py` (LAMA_ENABLED=true) |
 | Chargement RAW DNG/CR2 | ⚠️ Optionnel | `app/modules/raw/raw_loader.py` (rawpy requis) |
@@ -400,10 +400,12 @@ LAMA_ENABLED=true uvicorn app.main:app --reload
 
 ---
 
-## Auteur
+## Auteurs
 
-Ravin THILAGARASA
-Projet Annuel ESGI 4ème année — 2025/2026
+- **Ravin THILAGARASA**
+- **Richard PAMPANA**
+
+Projet Annuel ESGI 4ème année — Cybersécurité — 2025/2026
 
 ---
 

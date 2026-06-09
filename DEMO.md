@@ -111,7 +111,7 @@ python scripts/demo_dump_recovery.py \
 
 Pour montrer le mode forensique avancé (image déjà corrompue sans pipeline automatique) :
 
-1. Ouvrir `Mask_editor.html`
+1. Ouvrir `mask_editor.html`
 2. Charger une image corrompue (depuis `data/corrupted/` après un scénario 1, ou uploader manuellement)
 3. Peindre la zone abîmée au pinceau
 4. Lancer la reconstruction

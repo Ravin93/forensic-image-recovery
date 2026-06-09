@@ -795,7 +795,7 @@ table.cand-table { width: 100%; border-collapse: collapse; }
       <div class="logo-sub">Image Reconstruction System</div>
     </div>
   </div>
-  <a href="Mask_editor.html" class="header-link">✏ Éditeur de masque</a>
+  <a href="mask_editor.html" class="header-link">✏ Éditeur de masque</a>
   <a href="technique.html"   class="header-link">Documentation →</a>
   <div class="api-badge">
     <div class="api-dot" id="api-dot"></div>
@@ -1170,7 +1170,7 @@ function renderResults(data) {
   </div>`;
 
   const breakdown  = renderBreakdown(data);
-  const editorUrl  = `Mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
+  const editorUrl  = `mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
   const actionBar  = `<div class="action-bar">
     <a class="act-btn" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
     ${runId ? `<a class="act-btn teal" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
