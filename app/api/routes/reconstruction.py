@@ -245,14 +245,23 @@ async def compare_masks(
         best_result = result_auto
         best_mask   = str(auto_mask_path)
 
+    # Taux de couverture : quelle proportion de la zone auto l'utilisateur a couverte
+    bin_user = (user_mask_arr > 128)
+    bin_auto = (auto_mask_arr > 128)
+    if bin_auto.any():
+        coverage_ratio = float(np.sum(bin_user & bin_auto)) / float(np.sum(bin_auto))
+    else:
+        coverage_ratio = 1.0
+
     # Analyse qualitative
     diff = abs(score_user - score_auto)
+    cov_pct = round(coverage_ratio * 100)
     if diff < 1.0:
-        comparison_note = "Les deux masques donnent des resultats equivalents."
+        comparison_note = f"Les deux masques donnent des resultats equivalents. (couverture : {cov_pct}%)"
     elif winner == "user_mask":
-        comparison_note = f"Le masque utilisateur est meilleur de {diff:.1f} points."
+        comparison_note = f"Le masque utilisateur est meilleur de {diff:.1f} points. (couverture : {cov_pct}%)"
     else:
-        comparison_note = f"La detection automatique est meilleure de {diff:.1f} points."
+        comparison_note = f"La detection automatique est meilleure de {diff:.1f} points. (couverture : {cov_pct}%)"
 
     return {
         # Meilleur resultat (compatible avec le front)
@@ -287,6 +296,7 @@ async def compare_masks(
             "status":                   "completed" if result_auto else "failed",
         },
 
+        "coverage_ratio":            round(coverage_ratio, 4),
         "status": "completed",
         "errors": errors if errors else None,
     }

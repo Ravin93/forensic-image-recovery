@@ -522,6 +522,38 @@ hr { border: none; border-top: 1px solid var(--border); }
   border-bottom: 1px solid var(--border);
 }
 
+/* ─── Coverage bar ─── */
+.coverage-bar-wrap {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 0.65rem 0.75rem;
+}
+.coverage-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.coverage-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.coverage-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.coverage-hint {
+  font-size: 0.58rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+  opacity: 0.8;
+}
+
 .compare-section-label {
   font-size: 0.6rem;
   font-weight: 700;
@@ -1000,13 +1032,20 @@ function showError(msg) {
     `<div class="error-box"><strong style="display:block;margin-bottom:.3rem;letter-spacing:.04em">Erreur</strong>${esc(msg)}</div>`;
 }
 
+function coverageColor(pct) {
+  if (pct >= 80) return 'var(--success)';
+  if (pct >= 50) return 'var(--warn)';
+  return 'var(--error)';
+}
+
 function renderResults(data) {
   lastReconPath = data.reconstructed_image;
 
-  const winner   = data.winner || 'user_mask';
-  const note     = data.comparison_note || '';
-  const ud       = data.user_mask || {};
-  const ad       = data.auto_mask || {};
+  const winner      = data.winner || 'user_mask';
+  const note        = data.comparison_note || '';
+  const coveragePct = data.coverage_ratio != null ? Math.round(data.coverage_ratio * 100) : null;
+  const ud          = data.user_mask || {};
+  const ad          = data.auto_mask || {};
 
   const userScore    = parseFloat(ud.score ?? 0).toFixed(1);
   const autoScore    = parseFloat(ad.score ?? 0).toFixed(1);
@@ -1054,6 +1093,18 @@ function renderResults(data) {
       <span>${bannerTitle}</span>
       <span class="compare-note">${esc(note)}</span>
     </div>
+
+    ${coveragePct != null ? `
+    <div class="coverage-bar-wrap">
+      <div class="coverage-bar-label">
+        <span>Couverture de la corruption</span>
+        <span style="font-weight:700;color:${coverageColor(coveragePct)}">${coveragePct}%</span>
+      </div>
+      <div class="coverage-track">
+        <div class="coverage-fill" style="width:${coveragePct}%;background:${coverageColor(coveragePct)}"></div>
+      </div>
+      <div class="coverage-hint">Portion de la zone corrompue couverte par votre masque</div>
+    </div>` : ''}
 
     <div class="compare-section-label">Votre masque</div>
     ${colImg(userReconUrl, userMaskUrl, userScore, userStrategy, userWins)}
