@@ -522,6 +522,25 @@ hr { border: none; border-top: 1px solid var(--border); }
   border-bottom: 1px solid var(--border);
 }
 
+.compare-section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+.compare-col-mask-label {
+  font-size: 0.58rem;
+  color: var(--muted);
+  padding: 0.25rem 0.65rem 0;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .compare-col-foot {
   display: flex;
   justify-content: space-between;
@@ -998,11 +1017,14 @@ function renderResults(data) {
     ? `${API}/files/serve?path=${encodeURIComponent(ud.reconstructed_image)}` : '';
   const autoReconUrl = ad.reconstructed_image
     ? `${API}/files/serve?path=${encodeURIComponent(ad.reconstructed_image)}` : '';
-  const maskUrl = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
+  const userMaskUrl = ud.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.mask_path)}` : '';
+  const autoMaskUrl = ad.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.mask_path)}` : '';
 
-  const bestScore = parseFloat(data.score || 0).toFixed(1);
+  const bestScore    = parseFloat(data.score || 0).toFixed(1);
   const bestStrategy = data.selected_repair_strategy || '—';
-  const retries = (winner === 'user_mask' ? ud.retry_count : ad.retry_count) ?? 0;
+  const retries      = (winner === 'user_mask' ? ud.retry_count : ad.retry_count) ?? 0;
 
   const bannerCls   = winner === 'user_mask' ? 'user-wins' : 'auto-wins';
   const bannerTitle = winner === 'user_mask' ? '✓ Votre masque est meilleur' : '⚡ Détection auto est meilleure';
@@ -1010,40 +1032,34 @@ function renderResults(data) {
   const userWins = winner === 'user_mask';
   const autoWins = winner === 'auto_mask';
 
+  const colImg = (reconUrl, maskUrl, score, strategy, wins) => `
+    <div class="compare-col ${wins ? 'winner' : ''}">
+      <div class="compare-col-head">
+        <span class="rdot" style="background:${wins ? 'var(--success)' : 'var(--muted)'}"></span>
+        ${wins ? '★ ' : ''}Résultat reconstruit
+      </div>
+      ${reconUrl ? `<img src="${reconUrl}" alt="" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
+      <div class="compare-col-foot">
+        <span class="compare-score-val" style="color:${scoreColor(parseFloat(score))}">${score}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px;font-size:.6rem">${esc(strategy)}</span>
+      </div>
+      ${maskUrl ? `
+      <div class="compare-col-mask-label">Masque utilisé</div>
+      <img src="${maskUrl}" alt="Masque" style="width:100%;display:block;min-height:40px;object-fit:cover;background:var(--surface2)" onerror="this.style.opacity=.3">
+      ` : ''}
+    </div>`;
+
   document.getElementById('results-content').innerHTML = `
     <div class="compare-banner ${bannerCls}">
       <span>${bannerTitle}</span>
       <span class="compare-note">${esc(note)}</span>
     </div>
 
-    <div class="compare-col ${userWins ? 'winner' : ''}">
-      <div class="compare-col-head">
-        <span class="rdot" style="background:${userWins ? 'var(--success)' : 'var(--muted)'}"></span>
-        Votre masque ${userWins ? '★' : ''}
-      </div>
-      ${userReconUrl ? `<img src="${userReconUrl}" alt="Votre résultat" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
-      <div class="compare-col-foot">
-        <span class="compare-score-val" style="color:${scoreColor(parseFloat(userScore))}">${userScore}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${esc(userStrategy)}</span>
-      </div>
-    </div>
+    <div class="compare-section-label">Votre masque</div>
+    ${colImg(userReconUrl, userMaskUrl, userScore, userStrategy, userWins)}
 
-    <div class="compare-col ${autoWins ? 'winner' : ''}">
-      <div class="compare-col-head">
-        <span class="rdot" style="background:${autoWins ? 'var(--success)' : 'var(--muted)'}"></span>
-        Détection auto ${autoWins ? '★' : ''}
-      </div>
-      ${autoReconUrl ? `<img src="${autoReconUrl}" alt="Résultat auto" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
-      <div class="compare-col-foot">
-        <span class="compare-score-val" style="color:${scoreColor(parseFloat(autoScore))}">${autoScore}</span>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${esc(autoStrategy)}</span>
-      </div>
-    </div>
-
-    <div class="result-img">
-      <div class="result-img-head"><span class="rdot" style="background:var(--muted)"></span>Masque utilisé</div>
-      <img src="${maskUrl}" alt="Masque" onerror="this.style.opacity=.3">
-    </div>
+    <div class="compare-section-label">Détection automatique</div>
+    ${colImg(autoReconUrl, autoMaskUrl, autoScore, autoStrategy, autoWins)}
 
     <div class="score-card">
       <div class="score-val" style="color:${scoreColor(parseFloat(bestScore))}">${bestScore}<span style="font-size:1rem;opacity:.4">/100</span></div>
