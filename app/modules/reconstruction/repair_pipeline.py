@@ -8,7 +8,7 @@ B4 : top_candidates [best_score, best_visual, most_conservative]
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import cv2
 import numpy as np
@@ -165,6 +165,37 @@ def _build_adaptive_plan(
     return plan
 
 
+def _build_forensic_supreme_plan(
+    corruption_type: str,
+    base_radius: int,
+    recommended: str,
+) -> list[dict[str, Any]]:
+    """Construit le plan exhaustif du mode forensic_supreme."""
+    plan = _build_adaptive_plan(corruption_type, base_radius, recommended)
+    has_supreme_patchmatch = any(
+        p.get("family") == "patchmatch"
+        and int(p.get("patch_size", 0)) == 15
+        and int(p.get("iterations", 0)) == 20
+        for p in plan
+    )
+    if not has_supreme_patchmatch:
+        last_patchmatch_idx = max(
+            (idx for idx, p in enumerate(plan) if p.get("family") == "patchmatch"),
+            default=-1,
+        )
+        supreme_patchmatch = {
+            "strategy": "patchmatch_p15_i20",
+            "family": "patchmatch",
+            "patch_size": 15,
+            "iterations": 20,
+        }
+        if last_patchmatch_idx >= 0:
+            plan.insert(last_patchmatch_idx + 1, supreme_patchmatch)
+        else:
+            plan.append(supreme_patchmatch)
+    return plan
+
+
 # ---------------------------------------------------------------------------
 # B3 — Exécution des stratégies composées
 # ---------------------------------------------------------------------------
@@ -251,6 +282,242 @@ def _run_composite_strategy(
             return None
 
     return current
+
+
+def _emit_progress(
+    progress_callback: Callable[[str, dict[str, Any]], None] | None,
+    phase: str,
+    **details: Any,
+) -> None:
+    if progress_callback is None:
+        return
+    try:
+        progress_callback(phase, details)
+    except Exception as exc:
+        logger.debug("Progress callback failed (%s): %s", phase, exc)
+
+
+def _run_repair_plan_candidate(
+    plan: dict[str, Any],
+    input_image_path: Path,
+    scoring_image_path: Path,
+    mask_path_obj: Path | None,
+    original_image_path: Path | None,
+    method: str,
+    base_radius: int,
+    out_dir: Path,
+    mask_arr: np.ndarray | None,
+) -> dict[str, Any] | None:
+    family = str(plan["family"])
+    strategy = str(plan["strategy"])
+    image_np = cv2.imread(str(input_image_path), cv2.IMREAD_COLOR)
+    if image_np is None:
+        raise ReconstructionError(f"Impossible de charger l'image : {input_image_path}")
+
+    if family == "composite":
+        result_path = _run_composite_strategy(
+            plan, input_image_path, mask_path_obj,
+            image_np, method, base_radius, out_dir,
+        )
+        if result_path and Path(result_path).exists():
+            return _candidate_from_path(
+                strategy, result_path, scoring_image_path, original_image_path,
+                extra={"family": family, "steps": plan.get("steps", [])},
+                mask=mask_arr,
+            )
+        return None
+
+    if family == "patchmatch":
+        if mask_path_obj is None or not _PATCHMATCH_AVAILABLE:
+            return None
+        result = _patchmatch_inpaint(
+            input_image_path, mask_path_obj,
+            patch_size=int(plan["patch_size"]),
+            iterations=int(plan["iterations"]),
+        )
+        return _candidate_from_path(
+            strategy, result["path"], scoring_image_path, original_image_path,
+            extra={"patch_size": plan["patch_size"],
+                   "iterations": plan["iterations"], "family": family},
+            mask=mask_arr,
+        )
+
+    if family == "inpainting":
+        if mask_path_obj is None:
+            return None
+        result = reconstruct_with_inpaint(
+            input_image_path, mask_path_obj,
+            method=method, radius=int(plan["radius"]),
+        )
+        return _candidate_from_path(
+            strategy, result["path"], scoring_image_path, original_image_path,
+            extra={"radius": int(plan["radius"]), "family": family},
+            mask=mask_arr,
+        )
+
+    if family == "denoise":
+        result = denoise_image(input_image_path, method=str(plan["denoise_method"]))
+        return _candidate_from_path(
+            strategy, result["path"], scoring_image_path, original_image_path,
+            extra={"family": family},
+            mask=mask_arr,
+        )
+
+    if family == "deblur":
+        deblurred = deblur(image_np)
+        if plan.get("strength") == "strong":
+            deblurred = deblur(deblurred)
+        output = out_dir / f"{input_image_path.stem}_{strategy}.png"
+        path = _save_image(output, deblurred)
+        return _candidate_from_path(
+            strategy, path, scoring_image_path, original_image_path,
+            extra={"family": family, "strength": plan.get("strength")},
+            mask=mask_arr,
+        )
+
+    if family == "block_repair":
+        repaired = repair_blocks(image_np)
+        output = out_dir / f"{input_image_path.stem}_{strategy}.png"
+        path = _save_image(output, repaired)
+        return _candidate_from_path(
+            strategy, path, scoring_image_path, original_image_path,
+            extra={"family": family},
+            mask=mask_arr,
+        )
+
+    if family == "hybrid":
+        if mask_path_obj is None:
+            return None
+        denoised = denoise_image(input_image_path, method=str(plan["denoise_method"]))
+        hybrid = reconstruct_with_inpaint(
+            denoised["path"], mask_path_obj,
+            method=method, radius=int(plan["radius"]),
+        )
+        return _candidate_from_path(
+            strategy, hybrid["path"], scoring_image_path, original_image_path,
+            extra={"family": family, "radius": int(plan["radius"]),
+                   "denoise_method": str(plan["denoise_method"])},
+            mask=mask_arr,
+        )
+
+    return None
+
+
+def _run_forensic_supreme_candidates(
+    corrupted_image_path: Path,
+    mask_path_obj: Path | None,
+    original_image_path: Path | None,
+    method: str,
+    base_radius: int,
+    corruption_type: str,
+    recommended: str,
+    out_dir: Path,
+    mask_arr: np.ndarray | None = None,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Exécute toutes les familles et réinjecte le meilleur de chaque famille."""
+    plan = _build_forensic_supreme_plan(corruption_type, base_radius, recommended)
+    families: list[str] = []
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in plan:
+        family = str(item["family"])
+        if family not in grouped:
+            grouped[family] = []
+            families.append(family)
+        grouped[family].append(item)
+
+    current_input = corrupted_image_path
+    candidates: list[dict[str, Any]] = []
+    family_chain: list[dict[str, Any]] = []
+
+    for family in families:
+        family_candidates: list[dict[str, Any]] = []
+        family_input = current_input
+        _emit_progress(
+            progress_callback, "family_started",
+            family=family, input_path=str(family_input),
+            strategy_count=len(grouped[family]),
+        )
+
+        for item in grouped[family]:
+            strategy = str(item["strategy"])
+            _emit_progress(
+                progress_callback, "strategy_started",
+                family=family, strategy=strategy, input_path=str(family_input),
+            )
+            try:
+                candidate = _run_repair_plan_candidate(
+                    item, family_input, corrupted_image_path, mask_path_obj,
+                    original_image_path, method, base_radius, out_dir, mask_arr,
+                )
+                if candidate:
+                    candidate["supreme_input_path"] = str(family_input)
+                    candidate["supreme_family"] = family
+                    family_candidates.append(candidate)
+                    candidates.append(candidate)
+                    _emit_progress(
+                        progress_callback, "strategy_completed",
+                        family=family, strategy=strategy,
+                        score=float(candidate.get("score", 0.0)),
+                    )
+                else:
+                    _emit_progress(
+                        progress_callback, "strategy_skipped",
+                        family=family, strategy=strategy,
+                    )
+            except Exception as exc:
+                logger.warning("Forensic supreme candidate failed (%s): %s", strategy, exc)
+                _emit_progress(
+                    progress_callback, "strategy_failed",
+                    family=family, strategy=strategy, error=str(exc),
+                )
+
+        if family_candidates:
+            best = max(family_candidates, key=lambda c: float(c.get("score", 0.0)))
+            current_input = Path(best["path"])
+            family_chain.append({
+                "family": family,
+                "input_path": str(family_input),
+                "selected_strategy": best.get("strategy"),
+                "selected_path": best.get("path"),
+                "selected_score": best.get("score"),
+            })
+            _emit_progress(
+                progress_callback, "family_completed",
+                family=family, selected_strategy=str(best.get("strategy")),
+                selected_path=str(best.get("path")),
+                selected_score=float(best.get("score", 0.0)),
+            )
+        else:
+            family_chain.append({
+                "family": family,
+                "input_path": str(family_input),
+                "selected_strategy": None,
+                "selected_path": None,
+                "selected_score": None,
+            })
+            _emit_progress(
+                progress_callback, "family_completed",
+                family=family, selected_strategy=None,
+            )
+
+    if mask_path_obj is not None:
+        iterative = _run_iterative_pass(
+            current_input, mask_path_obj, original_image_path,
+            method, base_radius, max_iterations=3, mask_arr=mask_arr,
+        )
+        if iterative:
+            iterative["family"] = "iterative"
+            iterative["supreme_family"] = "iterative"
+            iterative["supreme_input_path"] = str(current_input)
+            candidates.append(iterative)
+            _emit_progress(
+                progress_callback, "strategy_completed",
+                family="iterative", strategy="iterative_inpaint",
+                score=float(iterative.get("score", 0.0)),
+            )
+
+    return candidates, family_chain
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +637,8 @@ def run_repair_pipeline(
     detection_confidence: float = 1.0,
     original_image_path: str | Path | None = None,
     max_attempts: int = 8,
+    forensic_supreme: bool = False,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     corrupted_image_path = Path(corrupted_image_path)
     if not corrupted_image_path.exists():
@@ -414,115 +683,137 @@ def run_repair_pipeline(
         mask=mask_arr,
     ))
 
-    # B1 — Plan adaptatif
-    adaptive_plan = _build_adaptive_plan(corruption_type, radius, recommended)
+    family_chain: list[dict[str, Any]] = []
 
-    for plan in adaptive_plan:
-        if len(candidates) >= max_attempts:
-            break
+    if forensic_supreme:
+        _emit_progress(
+            progress_callback, "repair_started",
+            mode="forensic_supreme",
+            max_attempts=None,
+        )
+        supreme_candidates, family_chain = _run_forensic_supreme_candidates(
+            corrupted_image_path=corrupted_image_path,
+            mask_path_obj=mask_path_obj,
+            original_image_path=orig_path,
+            method=method,
+            base_radius=radius,
+            corruption_type=corruption_type,
+            recommended=recommended,
+            out_dir=out_dir,
+            mask_arr=mask_arr,
+            progress_callback=progress_callback,
+        )
+        candidates.extend(supreme_candidates)
+    else:
+        # B1 — Plan adaptatif
+        adaptive_plan = _build_adaptive_plan(corruption_type, radius, recommended)
 
-        family   = str(plan["family"])
-        strategy = str(plan["strategy"])
+        for plan in adaptive_plan:
+            if len(candidates) >= max_attempts:
+                break
 
-        try:
-            # B3 — Stratégies composées
-            if family == "composite":
-                result_path = _run_composite_strategy(
-                    plan, corrupted_image_path, mask_path_obj,
-                    image_np, method, radius, out_dir,
-                )
-                if result_path and Path(result_path).exists():
+            family   = str(plan["family"])
+            strategy = str(plan["strategy"])
+
+            try:
+                # B3 — Stratégies composées
+                if family == "composite":
+                    result_path = _run_composite_strategy(
+                        plan, corrupted_image_path, mask_path_obj,
+                        image_np, method, radius, out_dir,
+                    )
+                    if result_path and Path(result_path).exists():
+                        candidates.append(_candidate_from_path(
+                            strategy, result_path, corrupted_image_path, orig_path,
+                            extra={"family": family, "steps": plan.get("steps", [])},
+                            mask=mask_arr,
+                        ))
+
+                elif family == "patchmatch":
+                    if mask_path_obj is None or not _PATCHMATCH_AVAILABLE:
+                        continue
+                    result = _patchmatch_inpaint(
+                        corrupted_image_path, mask_path_obj,
+                        patch_size=int(plan["patch_size"]),
+                        iterations=int(plan["iterations"]),
+                    )
                     candidates.append(_candidate_from_path(
-                        strategy, result_path, corrupted_image_path, orig_path,
-                        extra={"family": family, "steps": plan.get("steps", [])},
+                        strategy, result["path"], corrupted_image_path, orig_path,
+                        extra={"patch_size": plan["patch_size"],
+                               "iterations": plan["iterations"], "family": family},
                         mask=mask_arr,
                     ))
 
-            elif family == "patchmatch":
-                if mask_path_obj is None or not _PATCHMATCH_AVAILABLE:
-                    continue
-                result = _patchmatch_inpaint(
-                    corrupted_image_path, mask_path_obj,
-                    patch_size=int(plan["patch_size"]),
-                    iterations=int(plan["iterations"]),
-                )
-                candidates.append(_candidate_from_path(
-                    strategy, result["path"], corrupted_image_path, orig_path,
-                    extra={"patch_size": plan["patch_size"],
-                           "iterations": plan["iterations"], "family": family},
-                    mask=mask_arr,
-                ))
+                elif family == "inpainting":
+                    if mask_path_obj is None:
+                        continue
+                    result = reconstruct_with_inpaint(
+                        corrupted_image_path, mask_path_obj,
+                        method=method, radius=int(plan["radius"]),
+                    )
+                    candidates.append(_candidate_from_path(
+                        strategy, result["path"], corrupted_image_path, orig_path,
+                        extra={"radius": int(plan["radius"]), "family": family},
+                        mask=mask_arr,
+                    ))
 
-            elif family == "inpainting":
-                if mask_path_obj is None:
-                    continue
-                result = reconstruct_with_inpaint(
-                    corrupted_image_path, mask_path_obj,
-                    method=method, radius=int(plan["radius"]),
-                )
-                candidates.append(_candidate_from_path(
-                    strategy, result["path"], corrupted_image_path, orig_path,
-                    extra={"radius": int(plan["radius"]), "family": family},
-                    mask=mask_arr,
-                ))
+                elif family == "denoise":
+                    result = denoise_image(corrupted_image_path, method=str(plan["denoise_method"]))
+                    candidates.append(_candidate_from_path(
+                        strategy, result["path"], corrupted_image_path, orig_path,
+                        extra={"family": family},
+                        mask=mask_arr,
+                    ))
 
-            elif family == "denoise":
-                result = denoise_image(corrupted_image_path, method=str(plan["denoise_method"]))
-                candidates.append(_candidate_from_path(
-                    strategy, result["path"], corrupted_image_path, orig_path,
-                    extra={"family": family},
-                    mask=mask_arr,
-                ))
+                elif family == "deblur":
+                    deblurred = deblur(image_np)
+                    if plan.get("strength") == "strong":
+                        deblurred = deblur(deblurred)
+                    output = out_dir / f"{corrupted_image_path.stem}_{strategy}.png"
+                    path = _save_image(output, deblurred)
+                    candidates.append(_candidate_from_path(
+                        strategy, path, corrupted_image_path, orig_path,
+                        extra={"family": family, "strength": plan.get("strength")},
+                        mask=mask_arr,
+                    ))
 
-            elif family == "deblur":
-                deblurred = deblur(image_np)
-                if plan.get("strength") == "strong":
-                    deblurred = deblur(deblurred)
-                output = out_dir / f"{corrupted_image_path.stem}_{strategy}.png"
-                path = _save_image(output, deblurred)
-                candidates.append(_candidate_from_path(
-                    strategy, path, corrupted_image_path, orig_path,
-                    extra={"family": family, "strength": plan.get("strength")},
-                    mask=mask_arr,
-                ))
+                elif family == "block_repair":
+                    repaired = repair_blocks(image_np)
+                    output = out_dir / f"{corrupted_image_path.stem}_{strategy}.png"
+                    path = _save_image(output, repaired)
+                    candidates.append(_candidate_from_path(
+                        strategy, path, corrupted_image_path, orig_path,
+                        extra={"family": family},
+                        mask=mask_arr,
+                    ))
 
-            elif family == "block_repair":
-                repaired = repair_blocks(image_np)
-                output = out_dir / f"{corrupted_image_path.stem}_{strategy}.png"
-                path = _save_image(output, repaired)
-                candidates.append(_candidate_from_path(
-                    strategy, path, corrupted_image_path, orig_path,
-                    extra={"family": family},
-                    mask=mask_arr,
-                ))
+                elif family == "hybrid":
+                    if mask_path_obj is None:
+                        continue
+                    denoised = denoise_image(corrupted_image_path, method=str(plan["denoise_method"]))
+                    hybrid = reconstruct_with_inpaint(
+                        denoised["path"], mask_path_obj,
+                        method=method, radius=int(plan["radius"]),
+                    )
+                    candidates.append(_candidate_from_path(
+                        strategy, hybrid["path"], corrupted_image_path, orig_path,
+                        extra={"family": family, "radius": int(plan["radius"]),
+                               "denoise_method": str(plan["denoise_method"])},
+                        mask=mask_arr,
+                    ))
 
-            elif family == "hybrid":
-                if mask_path_obj is None:
-                    continue
-                denoised = denoise_image(corrupted_image_path, method=str(plan["denoise_method"]))
-                hybrid = reconstruct_with_inpaint(
-                    denoised["path"], mask_path_obj,
-                    method=method, radius=int(plan["radius"]),
-                )
-                candidates.append(_candidate_from_path(
-                    strategy, hybrid["path"], corrupted_image_path, orig_path,
-                    extra={"family": family, "radius": int(plan["radius"]),
-                           "denoise_method": str(plan["denoise_method"])},
-                    mask=mask_arr,
-                ))
+            except Exception as exc:
+                logger.warning("Repair candidate failed (%s): %s", strategy, exc)
 
-        except Exception as exc:
-            logger.warning("Repair candidate failed (%s): %s", strategy, exc)
-
-    # B2 — Passe itérative sur le meilleur candidat courant
-    if len(candidates) < max_attempts and mask_path_obj is not None:
-        iterative = _run_iterative_pass(
-            corrupted_image_path, mask_path_obj, orig_path,
-            method, radius, max_iterations=min(3, max_attempts - len(candidates)),
-            mask_arr=mask_arr,
-        )
-        if iterative:
-            candidates.append(iterative)
+        # B2 — Passe itérative sur le meilleur candidat courant
+        if len(candidates) < max_attempts and mask_path_obj is not None:
+            iterative = _run_iterative_pass(
+                corrupted_image_path, mask_path_obj, orig_path,
+                method, radius, max_iterations=min(3, max_attempts - len(candidates)),
+                mask_arr=mask_arr,
+            )
+            if iterative:
+                candidates.append(iterative)
 
     if not candidates:
         raise ReconstructionError("Aucune tentative de reconstruction valide")
@@ -547,6 +838,9 @@ def run_repair_pipeline(
         "retry_count":              max(0, len(candidates) - 1),
         "method":                   method,
         "corruption_type":          corruption_type,
+        "forensic_supreme":         forensic_supreme,
+        "family_chain":             family_chain,
+        "max_attempts_applied":     None if forensic_supreme else max_attempts,
     }
     logger.info(
         "Repair pipeline done | selected=%s | score=%.2f | attempts=%s",

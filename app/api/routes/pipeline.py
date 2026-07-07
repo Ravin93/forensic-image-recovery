@@ -4,13 +4,20 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 
 from app.api.schemas.requests import RunPipelineRequest
 from app.api.schemas.responses import CandidateResponse, CorruptAndRepairResponse
 from app.core.audit_logger import log_audit_entry, new_request_id
 from app.core.full_pipeline_service import run_full_pipeline
 from app.core.upload_validator import get_file_info, validate_upload
+from app.modules.analysis.analysis_store import (
+    create_analysis,
+    new_analysis_id,
+    save_analysis_file,
+    save_result,
+    update_status,
+)
 from app.services.pipeline_service import run_demo_pipeline
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -39,6 +46,125 @@ _RECT_BASED = {
     "rectangle_mask", "noise", "zone_deletion", "combined",
     "local_blur", "shift_region", "jpeg_block_artifacts", "local_noise",
 }
+
+
+def _build_progress_audit_logger(
+    request_id: str,
+    ip: str,
+    endpoint: str,
+    filename: str | None,
+    sha256: str | None,
+    corruption_type: str | None,
+    started_at: float,
+    interval_s: float = 30.0,
+):
+    last_logged = {"t": started_at}
+
+    def _log(phase: str, details: dict[str, Any]) -> None:
+        now = time.perf_counter()
+        force = phase in {"task_started", "task_completed", "task_failed"}
+        if not force and now - last_logged["t"] < interval_s:
+            return
+        last_logged["t"] = now
+        log_audit_entry(
+            request_id=request_id,
+            ip=ip,
+            endpoint=endpoint,
+            filename=filename,
+            sha256=sha256,
+            corruption_type=corruption_type,
+            processing_time_s=now - started_at,
+            status="progress",
+            http_status=202,
+            extra={"phase": phase, **details},
+        )
+
+    return _log
+
+
+def _run_forensic_supreme_task(
+    analysis_id: str,
+    source_path: Path,
+    corruption_type: str,
+    corruption_params: dict[str, Any],
+    randomize: bool,
+    seed: int | None,
+    request_id: str,
+    client_ip: str,
+    filename: str,
+    sha256: str | None,
+    started_at: float,
+) -> None:
+    progress = _build_progress_audit_logger(
+        request_id=request_id,
+        ip=client_ip,
+        endpoint="/pipeline/corrupt-and-repair",
+        filename=filename,
+        sha256=sha256,
+        corruption_type=corruption_type,
+        started_at=started_at,
+    )
+
+    try:
+        update_status(analysis_id, "running")
+        progress("task_started", {"analysis_id": analysis_id, "execution_mode": "forensic_supreme"})
+
+        result = run_demo_pipeline(
+            source_image_path=source_path,
+            corruption_type=corruption_type,
+            corruption_params=corruption_params,
+            randomize=randomize,
+            execution_mode="forensic_supreme",
+            seed=seed,
+            progress_callback=progress,
+        )
+
+        for key, path_key in [
+            ("original", "original_image"),
+            ("corrupted", "corrupted_image"),
+            ("reconstructed", "reconstructed_image"),
+            ("mask", "mask_path"),
+            ("report_json", "report_path"),
+        ]:
+            p = result.get(path_key)
+            if p and Path(p).exists():
+                save_analysis_file(analysis_id, key, p)
+
+        save_result(analysis_id, result)
+        update_status(analysis_id, "completed", extra={
+            "score": result.get("repair_score"),
+            "selected_repair_strategy": result.get("selected_repair_strategy"),
+            "corruption_type": corruption_type,
+            "execution_mode": "forensic_supreme",
+        })
+        progress("task_completed", {
+            "analysis_id": analysis_id,
+            "score": result.get("repair_score"),
+            "selected_repair_strategy": result.get("selected_repair_strategy"),
+        })
+
+        log_audit_entry(
+            request_id=request_id, ip=client_ip,
+            endpoint="/pipeline/corrupt-and-repair",
+            filename=filename, sha256=sha256,
+            corruption_type=corruption_type,
+            processing_time_s=time.perf_counter() - started_at,
+            status="success", http_status=200,
+            extra={"analysis_id": analysis_id, "execution_mode": "forensic_supreme"},
+        )
+
+    except Exception as exc:
+        update_status(analysis_id, "failed", extra={"error": str(exc)})
+        progress("task_failed", {"analysis_id": analysis_id, "error": str(exc)})
+        log_audit_entry(
+            request_id=request_id, ip=client_ip,
+            endpoint="/pipeline/corrupt-and-repair",
+            filename=filename, sha256=sha256,
+            corruption_type=corruption_type,
+            processing_time_s=time.perf_counter() - started_at,
+            status="error", http_status=500,
+            extra={"analysis_id": analysis_id, "detail": str(exc)},
+        )
 
 
 @router.post("/run")
@@ -74,10 +200,11 @@ def run_pipeline(request: RunPipelineRequest):
 
 @router.post(
     "/corrupt-and-repair",
-    response_model=CorruptAndRepairResponse,
+    response_model=CorruptAndRepairResponse | dict[str, Any],
     summary="Upload → corruption → reconstruction automatique",
 )
 async def corrupt_and_repair(
+    background_tasks: BackgroundTasks,
     request: Request,
     image: UploadFile = File(...),
     corruption_type: str = Form("scratch_lines"),
@@ -96,6 +223,7 @@ async def corrupt_and_repair(
     try:
         ct  = corruption_type.strip().lower()
         sev = severity.strip().lower()
+        exec_mode = execution_mode.strip().lower()
 
         if ct not in _SUPPORTED_CORRUPTIONS:
             raise HTTPException(status_code=422,
@@ -118,12 +246,56 @@ async def corrupt_and_repair(
             k in corruption_params for k in ("x", "y", "width", "height")
         )
 
+        if exec_mode == "forensic_supreme":
+            analysis_id = new_analysis_id()
+            create_analysis(analysis_id, request_info={
+                "corruption_type": ct,
+                "severity": sev,
+                "execution_mode": exec_mode,
+                "max_attempts": None,
+                "seed": seed,
+                "filename": filename,
+                "sha256": sha256,
+            })
+            background_tasks.add_task(
+                _run_forensic_supreme_task,
+                analysis_id=analysis_id,
+                source_path=source_path,
+                corruption_type=ct,
+                corruption_params={} if needs_randomize else corruption_params,
+                randomize=needs_randomize,
+                seed=seed,
+                request_id=req_id,
+                client_ip=client_ip,
+                filename=filename,
+                sha256=sha256,
+                started_at=t_start,
+            )
+            log_audit_entry(
+                request_id=req_id, ip=client_ip,
+                endpoint="/pipeline/corrupt-and-repair",
+                filename=filename, sha256=sha256,
+                corruption_type=ct,
+                processing_time_s=time.perf_counter() - t_start,
+                status="accepted", http_status=202,
+                extra={"analysis_id": analysis_id, "execution_mode": exec_mode},
+            )
+            return {
+                "analysis_id": analysis_id,
+                "status": "pending",
+                "execution_mode": exec_mode,
+                "message": "Analyse forensic_supreme lancée en arrière-plan.",
+                "status_url": f"/analysis/{analysis_id}/status",
+                "result_url": f"/analysis/{analysis_id}/result",
+                "download_url": f"/analysis/{analysis_id}/download",
+            }
+
         result = run_demo_pipeline(
             source_image_path=source_path,
             corruption_type=ct,
             corruption_params={} if needs_randomize else corruption_params,
             randomize=needs_randomize,
-            execution_mode=execution_mode,
+            execution_mode=exec_mode,
             seed=seed,
             max_attempts=max_attempts,
         )
@@ -167,7 +339,7 @@ async def corrupt_and_repair(
             retry_count=int(result.get("retry_count") or 0),
             candidates=candidates_out,
             corruption_type=ct,
-            execution_mode=execution_mode,
+            execution_mode=exec_mode,
             report_path=str(result.get("report_path") or ""),
             status=result.get("status", "completed"),
             top_candidates=result.get("top_candidates"),
