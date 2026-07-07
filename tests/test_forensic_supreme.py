@@ -119,7 +119,16 @@ def test_meta_regional_strategy_fuses_regions(monkeypatch, tmp_path: Path):
 
     def fake_score(_corrupted, candidate_path, _original=None, mask=None):
         score = 90.0 if "inpainting_r7" in str(candidate_path) or "patchmatch_p11" in str(candidate_path) else 10.0
-        return score, {"mode": "supervised", "score": score, "region_pixels": int((mask > 0).sum()) if mask is not None else 0}
+        return score, {
+            "mode": "supervised",
+            "score": score,
+            "psnr": 31.0,
+            "ssim": 0.91,
+            "gain_psnr": 2.5,
+            "gain_ssim": 0.08,
+            "score_breakdown": {"global_score": score},
+            "region_pixels": int((mask > 0).sum()) if mask is not None else 0,
+        }
 
     monkeypatch.setattr(repair, "_run_regional_strategy", fake_run)
     monkeypatch.setattr(repair, "_score_candidate", fake_score)
@@ -136,10 +145,73 @@ def test_meta_regional_strategy_fuses_regions(monkeypatch, tmp_path: Path):
     assert candidate["strategy"] == "meta_regional"
     assert candidate["selected_strategy"] == "meta_regional"
     assert candidate["selected_score"] == 90.0
+    for key in ("psnr", "ssim", "mode", "gain_psnr", "gain_ssim", "score_breakdown"):
+        assert key in candidate
     assert candidate["region_count"] == 2
     assert candidate["fusion"] == "gaussian_blending"
     assert {r["selected_strategy"] for r in candidate["regions"]} == {"inpainting_r7", "patchmatch_p11"}
     assert Path(candidate["path"]).exists()
+
+
+def test_run_repair_pipeline_includes_meta_regional_candidate(monkeypatch, tmp_path: Path):
+    import app.modules.reconstruction.repair_pipeline as repair
+
+    image = np.zeros((32, 32, 3), dtype=np.uint8)
+    mask = np.zeros((32, 32), dtype=np.uint8)
+    mask[8:24, 8:24] = 255
+    image_path = tmp_path / "corrupted.png"
+    mask_path = tmp_path / "mask.png"
+    cv2.imwrite(str(image_path), image)
+    cv2.imwrite(str(mask_path), mask)
+
+    monkeypatch.setattr(
+        repair,
+        "_candidate_from_path",
+        lambda name, path, *_args, **_kwargs: {
+            "strategy": name,
+            "path": str(path),
+            "score": 0.0,
+            "family": "conservative",
+            "mode": "supervised",
+            "psnr": 0.0,
+            "ssim": 0.0,
+            "gain_psnr": 0.0,
+            "gain_ssim": 0.0,
+            "score_breakdown": {},
+        },
+    )
+    monkeypatch.setattr(
+        repair,
+        "_run_forensic_supreme_candidates",
+        lambda **_kwargs: (
+            [
+                {
+                    "strategy": "meta_regional",
+                    "path": str(image_path),
+                    "score": 33.0,
+                    "family": "meta_regional",
+                    "mode": "supervised",
+                    "psnr": 30.0,
+                    "ssim": 0.9,
+                    "gain_psnr": 1.0,
+                    "gain_ssim": 0.05,
+                    "score_breakdown": {"global_score": 33.0},
+                },
+            ],
+            [{"family": "meta_regional", "selected_strategy": "meta_regional", "selected_score": 33.0}],
+        ),
+    )
+
+    result = repair.run_repair_pipeline(
+        corrupted_image_path=image_path,
+        mask_path=mask_path,
+        forensic_supreme=True,
+    )
+
+    meta = [c for c in result["candidates"] if c["strategy"] == "meta_regional"]
+    assert len(meta) == 1
+    for key in ("psnr", "ssim", "mode", "gain_psnr", "gain_ssim", "score_breakdown"):
+        assert key in meta[0]
 
 
 def test_criminisi_inpaint_returns_reconstruction(tmp_path: Path):

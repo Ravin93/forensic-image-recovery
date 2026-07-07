@@ -7,6 +7,8 @@ B4 : top_candidates [best_score, best_visual, most_conservative]
 """
 from __future__ import annotations
 
+import shutil
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -527,88 +529,115 @@ def _run_meta_regional_strategy(
     method: str,
     out_dir: Path,
 ) -> dict[str, Any] | None:
-    regions = _segment_mask_regions(input_image_path, mask_path_obj)
-    if len(regions) < 2:
-        return None
+    try:
+        regions = _segment_mask_regions(input_image_path, mask_path_obj)
+        logger.info("meta_regional: segmented into %d regions: %s",
+                    len(regions), [r.get("type") for r in regions])
+        if len(regions) < 2:
+            logger.warning("meta_regional: not enough regions (%d), min=2", len(regions))
+            return None
 
-    fused = cv2.imread(str(input_image_path), cv2.IMREAD_COLOR)
-    if fused is None:
-        raise ReconstructionError(f"Impossible de charger l'image : {input_image_path}")
+        fused = cv2.imread(str(input_image_path), cv2.IMREAD_COLOR)
+        if fused is None:
+            raise ReconstructionError(f"Impossible de charger l'image : {input_image_path}")
+        short_input = out_dir / f"meta_input_{uuid.uuid4().hex[:8]}.png"
+        shutil.copy(str(input_image_path), str(short_input))
 
-    region_results: list[dict[str, Any]] = []
-    total_area = float(sum(int(r["area"]) for r in regions)) or 1.0
+        region_results: list[dict[str, Any]] = []
+        total_area = float(sum(int(r["area"]) for r in regions)) or 1.0
 
-    for idx, region in enumerate(regions):
-        region_mask = region["mask"]
-        region_mask_path = out_dir / f"{input_image_path.stem}_meta_region_{idx}.png"
-        cv2.imwrite(str(region_mask_path), region_mask)
-        best_candidate: dict[str, Any] | None = None
+        for idx, region in enumerate(regions):
+            logger.info("meta_regional: processing region %d type=%s area=%d",
+                        idx, region.get("type"), region.get("area", 0))
+            region_mask = region["mask"]
+            region_mask_path = out_dir / f"meta_region_{idx}_{uuid.uuid4().hex[:8]}.png"
+            cv2.imwrite(str(region_mask_path), region_mask)
+            best_candidate: dict[str, Any] | None = None
 
-        for plan in _regional_strategy_plan(str(region["type"])):
-            try:
-                result = _run_regional_strategy(plan, input_image_path, region_mask_path, method)
-                if not result or not Path(result["path"]).exists():
-                    continue
-                score, details = _score_candidate(
-                    scoring_image_path,
-                    result["path"],
-                    original_image_path,
-                    mask=region_mask,
-                )
-                candidate = {
-                    "strategy": str(plan["strategy"]),
-                    "path": result["path"],
-                    "score": score,
-                    "region_type": region["type"],
-                    "region_index": idx,
-                    "region_area": int(region["area"]),
-                    **details,
-                }
-                if best_candidate is None or score > float(best_candidate.get("score", 0.0)):
-                    best_candidate = candidate
-            except Exception as exc:
-                logger.debug("Meta-regional candidate failed (%s): %s", plan.get("strategy"), exc)
+            for plan in _regional_strategy_plan(str(region["type"])):
+                try:
+                    result = _run_regional_strategy(plan, short_input, region_mask_path, method)
+                    if not result:
+                        logger.warning("meta_regional: region %d returned None", idx)
+                        continue
+                    if not Path(result["path"]).exists():
+                        logger.warning("meta_regional: region %d returned missing path: %s",
+                                       idx, result.get("path"))
+                        continue
+                    score, details = _score_candidate(
+                        scoring_image_path,
+                        result["path"],
+                        original_image_path,
+                        mask=region_mask,
+                    )
+                    candidate = {
+                        "strategy": str(plan["strategy"]),
+                        "path": result["path"],
+                        "score": score,
+                        "region_type": region["type"],
+                        "region_index": idx,
+                        "region_area": int(region["area"]),
+                        **details,
+                    }
+                    logger.info("meta_regional: region %d OK score=%.3f", idx, candidate.get("score", 0))
+                    if best_candidate is None or score > float(best_candidate.get("score", 0.0)):
+                        best_candidate = candidate
+                except Exception as exc:
+                    logger.error("meta_regional: region %d FAILED: %s", idx, exc, exc_info=True)
 
-        if best_candidate is None:
-            continue
+            if best_candidate is None:
+                logger.warning("meta_regional: region %d has no best candidate", idx)
+                continue
 
-        candidate_img = cv2.imread(str(best_candidate["path"]), cv2.IMREAD_COLOR)
-        if candidate_img is None:
-            continue
-        fused = _blend_region(fused, candidate_img, region_mask)
-        region_results.append(best_candidate)
+            candidate_img = cv2.imread(str(best_candidate["path"]), cv2.IMREAD_COLOR)
+            if candidate_img is None:
+                continue
+            fused = _blend_region(fused, candidate_img, region_mask)
+            region_results.append(best_candidate)
 
-    if not region_results:
-        return None
+        if not region_results:
+            logger.warning("meta_regional: no region results")
+            return None
 
-    output_path = out_dir / f"{input_image_path.stem}_meta_regional.png"
-    path = _save_image(output_path, fused)
-    weighted_score = sum(
-        float(r["score"]) * (float(r["region_area"]) / total_area)
-        for r in region_results
-    )
-    _, details = _score_candidate(scoring_image_path, path, original_image_path)
-    return {
-        "strategy": "meta_regional",
-        "selected_strategy": "meta_regional",
-        "selected_score": float(weighted_score),
-        "path": path,
-        "score": float(weighted_score),
-        "family": "meta_regional",
-        "regions": [
-            {
-                "index": int(r["region_index"]),
-                "type": str(r["region_type"]),
-                "area": int(r["region_area"]),
-                "selected_strategy": str(r["strategy"]),
-                "score": float(r["score"]),
-            }
+        output_path = out_dir / f"meta_regional_{uuid.uuid4().hex[:8]}.png"
+        path = _save_image(output_path, fused)
+        weighted_score = sum(
+            float(r["score"]) * (float(r["region_area"]) / total_area)
             for r in region_results
-        ],
-        "region_count": len(region_results),
-        "fusion": "gaussian_blending",
-        **{k: v for k, v in details.items() if k != "score"},
-    }
+        )
+        _, details = _score_candidate(scoring_image_path, path, original_image_path)
+        logger.info("meta_regional candidate | score=%.3f | regions=%d",
+                    weighted_score, len(region_results))
+        return {
+            "strategy": "meta_regional",
+            "selected_strategy": "meta_regional",
+            "selected_score": float(weighted_score),
+            "path": path,
+            "score": float(weighted_score),
+            "family": "meta_regional",
+            "psnr": details.get("psnr", 0.0),
+            "ssim": details.get("ssim", 0.0),
+            "mode": details.get("mode", "supervised"),
+            "gain_psnr": details.get("gain_psnr", 0.0),
+            "gain_ssim": details.get("gain_ssim", 0.0),
+            "score_breakdown": details.get("score_breakdown", {}),
+            "regions": [
+                {
+                    "index": int(r["region_index"]),
+                    "type": str(r["region_type"]),
+                    "area": int(r["region_area"]),
+                    "selected_strategy": str(r["strategy"]),
+                    "score": float(r["score"]),
+                }
+                for r in region_results
+            ],
+            "region_count": len(region_results),
+            "fusion": "gaussian_blending",
+            **{k: v for k, v in details.items() if k != "score"},
+        }
+    except Exception as exc:
+        logger.error("meta_regional FAILED: %s", exc, exc_info=True)
+        return None
 
 
 def _run_repair_plan_candidate(
@@ -683,6 +712,7 @@ def _run_repair_plan_candidate(
         )
 
     if family == "meta_regional":
+        logger.info("Entering meta_regional branch")
         if mask_path_obj is None:
             return None
         return _run_meta_regional_strategy(
@@ -756,6 +786,7 @@ def _run_forensic_supreme_candidates(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Exécute toutes les familles et réinjecte le meilleur de chaque famille."""
     plan = _build_forensic_supreme_plan(corruption_type, base_radius, recommended)
+    logger.info("Supreme plan: %s", [p["strategy"] for p in plan])
     families: list[str] = []
     grouped: dict[str, list[dict[str, Any]]] = {}
     for item in plan:
@@ -779,6 +810,7 @@ def _run_forensic_supreme_candidates(
         )
 
         for item in grouped[family]:
+            logger.info("Executing supreme strategy: %s", item["strategy"])
             strategy = str(item["strategy"])
             _emit_progress(
                 progress_callback, "strategy_started",

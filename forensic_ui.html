@@ -1135,21 +1135,32 @@ function startSupremePolling(analysisId, runButton) {
 
 function updateSupremeProgressText(payload) {
   if (!supremeState) return;
-  const elapsed = Math.max(0, Date.now() - supremeState.startedAt);
+  const progress = payload.progress || {};
+  const strategiesDone = extractProgressNumber(payload, progress, [
+    'strategies_done', 'completed_strategies', 'strategies_completed',
+    'completed_count', 'current_strategy_index'
+  ]);
+  const strategiesTotal = extractProgressNumber(payload, progress, [
+    'strategies_total', 'total_strategies', 'strategy_count'
+  ]) || SUPREME_STRATEGIES.length;
   const idx = Math.min(
-    SUPREME_STRATEGIES.length - 1,
-    Math.floor((elapsed / supremeState.totalMs) * SUPREME_STRATEGIES.length)
+    strategiesTotal - 1,
+    Math.max(0, strategiesDone > 0 ? strategiesDone - 1 : 0)
   );
   const strategyFromApi =
     payload.current_strategy || payload.selected_repair_strategy ||
-    payload.strategy || payload.phase || null;
-  const strategy = strategyFromApi || SUPREME_STRATEGIES[idx];
+    payload.strategy || payload.phase ||
+    progress.current_strategy || progress.strategy || progress.phase || null;
+  const strategy = strategyFromApi || SUPREME_STRATEGIES[Math.min(idx, SUPREME_STRATEGIES.length - 1)] || 'stratégie en cours';
   const status = payload.status || 'running';
-  const remaining = Math.max(0, supremeState.totalMs - elapsed);
+  const processingTime = extractProgressNumber(payload, progress, [
+    'processing_time_s', 'elapsed_s', 'elapsed_seconds'
+  ]);
+  const strategiesRemaining = Math.max(0, strategiesTotal - strategiesDone);
   const isTerminal = status === 'completed' || status === 'failed';
   const statusText = status === 'pending'
     ? `En attente — ${strategy}...`
-    : `Stratégie ${idx + 1}/${SUPREME_STRATEGIES.length} — ${strategy}...`;
+    : `Stratégie ${Math.min(strategiesDone + 1, strategiesTotal)}/${strategiesTotal} — ${strategy}...`;
   const suffix = payload.transient_error ? ` · reconnexion (${esc(payload.transient_error)})` : '';
 
   const statusEl = document.getElementById('supreme-status');
@@ -1157,10 +1168,25 @@ function updateSupremeProgressText(payload) {
   if (statusEl) statusEl.textContent = statusText + suffix;
   if (etaEl) {
     etaEl.style.display = isTerminal ? 'none' : '';
-    etaEl.textContent = remaining > 0
-      ? `Estimation du temps restant : ${formatDuration(remaining)}`
-      : `Temps écoulé : ${formatDuration(elapsed)}`;
+    if (isTerminal) {
+      etaEl.textContent = '';
+    } else if (strategiesDone <= 0 || processingTime <= 0) {
+      etaEl.textContent = 'Calcul en cours...';
+    } else {
+      const meanPerStrategy = processingTime / strategiesDone;
+      const remainingSeconds = meanPerStrategy * strategiesRemaining;
+      etaEl.textContent = `Temps restant estimé : ${formatDuration(remainingSeconds * 1000)}`;
+    }
   }
+}
+
+function extractProgressNumber(payload, progress, keys) {
+  for (const key of keys) {
+    const raw = payload[key] ?? progress[key];
+    const value = Number(raw);
+    if (Number.isFinite(value)) return Math.max(0, value);
+  }
+  return 0;
 }
 
 async function loadSupremeResult(analysisId) {
