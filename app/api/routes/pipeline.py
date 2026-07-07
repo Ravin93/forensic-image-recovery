@@ -14,9 +14,11 @@ from app.core.upload_validator import get_file_info, validate_upload
 from app.modules.analysis.analysis_store import (
     create_analysis,
     new_analysis_id,
+    record_strategy_completed,
     save_analysis_file,
     save_result,
     update_status,
+    update_progress,
 )
 from app.services.pipeline_service import run_demo_pipeline
 
@@ -57,12 +59,31 @@ def _build_progress_audit_logger(
     corruption_type: str | None,
     started_at: float,
     interval_s: float = 30.0,
+    analysis_id: str | None = None,
 ):
     last_logged = {"t": started_at}
 
     def _log(phase: str, details: dict[str, Any]) -> None:
         now = time.perf_counter()
-        force = phase in {"task_started", "task_completed", "task_failed"}
+        elapsed_s = now - started_at
+        if analysis_id and phase == "supreme_plan":
+            update_progress(analysis_id, {
+                "total_strategies": int(details.get("total_strategies", 0) or 0),
+            })
+        elif analysis_id and phase == "strategy_completed":
+            record_strategy_completed(
+                analysis_id,
+                str(details.get("strategy") or ""),
+                details.get("score"),
+                elapsed_s,
+            )
+        elif analysis_id and phase == "strategy_running":
+            update_progress(analysis_id, {
+                "phase": "strategy_running",
+                "last_strategy": str(details.get("strategy") or ""),
+                "elapsed_s": elapsed_s,
+            })
+        force = phase in {"task_started", "task_completed", "task_failed", "strategy_completed"}
         if not force and now - last_logged["t"] < interval_s:
             return
         last_logged["t"] = now
@@ -73,7 +94,7 @@ def _build_progress_audit_logger(
             filename=filename,
             sha256=sha256,
             corruption_type=corruption_type,
-            processing_time_s=now - started_at,
+            processing_time_s=elapsed_s,
             status="progress",
             http_status=202,
             extra={"phase": phase, **details},
@@ -103,6 +124,7 @@ def _run_forensic_supreme_task(
         sha256=sha256,
         corruption_type=corruption_type,
         started_at=started_at,
+        analysis_id=analysis_id,
     )
 
     try:

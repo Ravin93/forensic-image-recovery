@@ -8,6 +8,8 @@ B4 : top_candidates [best_score, best_visual, most_conservative]
 from __future__ import annotations
 
 import shutil
+import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -27,6 +29,9 @@ try:
     _PATCHMATCH_AVAILABLE = True
 except ImportError:
     _PATCHMATCH_AVAILABLE = False
+
+_SUPREME_LONG_STRATEGY_FAMILIES = {"criminisi", "patchmatch"}
+_SUPREME_RUNNING_UPDATE_INTERVAL_S = 10.0
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +318,32 @@ def _emit_progress(
         progress_callback(phase, details)
     except Exception as exc:
         logger.debug("Progress callback failed (%s): %s", phase, exc)
+
+
+def _start_supreme_strategy_heartbeat(
+    progress_callback: Callable[[str, dict[str, Any]], None] | None,
+    family: str,
+    strategy: str,
+    input_path: Path,
+) -> tuple[threading.Event | None, threading.Thread | None]:
+    if progress_callback is None or family not in _SUPREME_LONG_STRATEGY_FAMILIES:
+        return None, None
+
+    stop_event = threading.Event()
+    started_at = time.perf_counter()
+
+    def _run() -> None:
+        while not stop_event.wait(_SUPREME_RUNNING_UPDATE_INTERVAL_S):
+            _emit_progress(
+                progress_callback, "strategy_running",
+                family=family, strategy=strategy,
+                input_path=str(input_path),
+                elapsed_s=time.perf_counter() - started_at,
+            )
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    return stop_event, thread
 
 
 def _region_type_from_stats(
@@ -787,6 +818,11 @@ def _run_forensic_supreme_candidates(
     """Exécute toutes les familles et réinjecte le meilleur de chaque famille."""
     plan = _build_forensic_supreme_plan(corruption_type, base_radius, recommended)
     logger.info("Supreme plan: %s", [p["strategy"] for p in plan])
+    _emit_progress(
+        progress_callback, "supreme_plan",
+        total_strategies=len(plan),
+        strategies=[p["strategy"] for p in plan],
+    )
     families: list[str] = []
     grouped: dict[str, list[dict[str, Any]]] = {}
     for item in plan:
@@ -818,7 +854,12 @@ def _run_forensic_supreme_candidates(
                 progress_callback, "strategy_started",
                 family=family, strategy=strategy, input_path=str(short_input),
             )
+            heartbeat_stop: threading.Event | None = None
+            heartbeat_thread: threading.Thread | None = None
             try:
+                heartbeat_stop, heartbeat_thread = _start_supreme_strategy_heartbeat(
+                    progress_callback, family, strategy, short_input,
+                )
                 candidate = _run_repair_plan_candidate(
                     item, short_input, corrupted_image_path, mask_path_obj,
                     original_image_path, method, base_radius, out_dir, mask_arr,
@@ -844,6 +885,11 @@ def _run_forensic_supreme_candidates(
                     progress_callback, "strategy_failed",
                     family=family, strategy=strategy, error=str(exc),
                 )
+            finally:
+                if heartbeat_stop is not None:
+                    heartbeat_stop.set()
+                if heartbeat_thread is not None:
+                    heartbeat_thread.join(timeout=0.2)
 
         if family_candidates:
             best = max(family_candidates, key=lambda c: float(c.get("score", 0.0)))

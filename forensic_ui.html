@@ -1098,6 +1098,9 @@ function startSupremePolling(analysisId, runButton) {
     analysisId,
     startedAt: Date.now(),
     lastStatus: 'pending',
+    observedCompletedCount: 0,
+    lastCompletedStrategy: null,
+    lastCompletedToken: null,
     totalMs: SUPREME_STRATEGIES.length * 18000
   };
 
@@ -1109,6 +1112,7 @@ function startSupremePolling(analysisId, runButton) {
       const payload = await r.json();
       supremeState.lastPayload = payload;
       supremeState.lastStatus = payload.status || supremeState.lastStatus;
+      recordSupremeStatusPayload(payload);
       updateSupremeProgressText(payload);
 
       if (payload.status === 'completed') {
@@ -1133,13 +1137,42 @@ function startSupremePolling(analysisId, runButton) {
   supremeEtaTimer = setInterval(tickEta, 1000);
 }
 
+function recordSupremeStatusPayload(payload) {
+  if (!supremeState) return;
+  const progress = payload.progress || {};
+  const explicitDone = extractCompletedStrategiesCount(payload, progress);
+  const lastListedStrategy = extractLastCompletedStrategy(payload, progress);
+  const directLastStrategy = payload.last_strategy || progress.last_strategy || null;
+  if (explicitDone > 0) {
+    supremeState.observedCompletedCount = Math.max(supremeState.observedCompletedCount, explicitDone);
+  }
+  if (directLastStrategy || lastListedStrategy) {
+    supremeState.lastCompletedStrategy = directLastStrategy || lastListedStrategy;
+  }
+
+  const phase = payload.phase || progress.phase || '';
+  if (phase !== 'strategy_completed') return;
+
+  const completedStrategy =
+    payload.strategy || progress.strategy ||
+    payload.current_strategy || progress.current_strategy || null;
+  const token = completedStrategy || `${Date.now()}`;
+  if (completedStrategy) {
+    supremeState.lastCompletedStrategy = completedStrategy;
+  }
+  if (token !== supremeState.lastCompletedToken) {
+    supremeState.lastCompletedToken = token;
+    if (explicitDone <= 0) {
+      supremeState.observedCompletedCount += 1;
+    }
+  }
+}
+
 function updateSupremeProgressText(payload) {
   if (!supremeState) return;
   const progress = payload.progress || {};
-  const strategiesDone = extractProgressNumber(payload, progress, [
-    'strategies_done', 'completed_strategies', 'strategies_completed',
-    'completed_count', 'current_strategy_index'
-  ]);
+  const explicitDone = extractCompletedStrategiesCount(payload, progress);
+  const strategiesDone = Math.max(explicitDone, supremeState.observedCompletedCount || 0);
   const strategiesTotal = extractProgressNumber(payload, progress, [
     'strategies_total', 'total_strategies', 'strategy_count'
   ]) || SUPREME_STRATEGIES.length;
@@ -1147,25 +1180,36 @@ function updateSupremeProgressText(payload) {
     strategiesTotal - 1,
     Math.max(0, strategiesDone > 0 ? strategiesDone - 1 : 0)
   );
+  const phase = payload.phase || progress.phase || '';
+  const currentStrategy =
+    payload.current_strategy || progress.current_strategy ||
+    payload.last_strategy || progress.last_strategy || null;
+  const eventStrategy = payload.strategy || progress.strategy || null;
   const strategyFromApi =
-    payload.current_strategy || payload.selected_repair_strategy ||
-    payload.strategy || payload.phase ||
-    progress.current_strategy || progress.strategy || progress.phase || null;
+    currentStrategy ||
+    (phase === 'strategy_completed' || phase === 'strategy_failed' ? eventStrategy : null) ||
+    payload.selected_repair_strategy || null;
   const strategy = strategyFromApi || SUPREME_STRATEGIES[Math.min(idx, SUPREME_STRATEGIES.length - 1)] || 'stratégie en cours';
   const status = payload.status || 'running';
   const processingTime = extractProgressNumber(payload, progress, [
     'processing_time_s', 'elapsed_s', 'elapsed_seconds'
   ]);
+  const rollingEstimate = estimateFromRecentStrategies(payload, progress);
   const strategiesRemaining = Math.max(0, strategiesTotal - strategiesDone);
   const isTerminal = status === 'completed' || status === 'failed';
-  const phase = payload.phase || progress.phase || '';
   const currentPosition = Math.min(strategiesDone + 1, strategiesTotal);
+  const completedPosition = Math.min(Math.max(strategiesDone, 1), strategiesTotal);
+  const completedStrategy = supremeState.lastCompletedStrategy || eventStrategy || strategy;
   const failedStrategy =
     payload.current_strategy || payload.strategy ||
     progress.current_strategy || progress.strategy ||
     `${currentPosition}/${strategiesTotal}`;
   const statusText = phase === 'strategy_failed'
     ? `Stratégie ${failedStrategy} échouée, passage à la suivante...`
+    : phase === 'strategy_running'
+      ? `Stratégie ${currentPosition}/${strategiesTotal} — ${strategy} en cours...`
+    : phase === 'strategy_completed'
+      ? `Stratégie ${completedPosition}/${strategiesTotal} — ${completedStrategy} ✓`
     : status === 'pending'
       ? `En attente — ${strategy}...`
       : `Stratégie ${currentPosition}/${strategiesTotal} — ${strategy}...`;
@@ -1178,14 +1222,73 @@ function updateSupremeProgressText(payload) {
     etaEl.style.display = isTerminal ? 'none' : '';
     if (isTerminal) {
       etaEl.textContent = '';
-    } else if (strategiesDone <= 0 || processingTime <= 0) {
-      etaEl.textContent = 'Calcul en cours...';
+    } else if (phase === 'strategy_running') {
+      etaEl.textContent = `Temps sur cette stratégie : ${formatDuration(processingTime * 1000)}`;
+    } else if (strategiesDone > 0 && processingTime / strategiesDone > 10) {
+      etaEl.textContent = "Analyse longue en cours — résultat disponible dans l'historique";
+    } else if (strategiesDone < 5 || rollingEstimate.mean <= 0) {
+      etaEl.textContent = 'Estimation en cours...';
     } else {
-      const meanPerStrategy = processingTime / strategiesDone;
-      const remainingSeconds = meanPerStrategy * strategiesRemaining;
-      etaEl.textContent = `Temps restant estimé : ${formatDuration(remainingSeconds * 1000)}`;
+      const remainingSeconds = rollingEstimate.mean * strategiesRemaining;
+      const minRemaining = rollingEstimate.min * strategiesRemaining;
+      const maxRemaining = rollingEstimate.max * strategiesRemaining;
+      etaEl.textContent = rollingEstimate.highVariance && maxRemaining > minRemaining
+        ? `~${formatMinutes(minRemaining)} – ${formatMinutes(maxRemaining)} restants`
+        : remainingSeconds > 0
+        ? `Temps restant estimé : ${formatDuration(remainingSeconds * 1000)}`
+        : `Temps écoulé : ${formatDuration(Date.now() - supremeState.startedAt)}`;
     }
   }
+}
+
+function extractCompletedStrategiesCount(payload, progress) {
+  const list = payload.strategies_completed ?? payload.completed_strategies ??
+    progress.strategies_completed ?? progress.completed_strategies;
+  if (Array.isArray(list)) return list.length;
+  return extractProgressNumber(payload, progress, [
+    'strategies_done', 'completed_strategies', 'strategies_completed',
+    'completed_count', 'current_strategy_index'
+  ]);
+}
+
+function extractLastCompletedStrategy(payload, progress) {
+  const events = extractCompletedStrategyEvents(payload, progress);
+  if (events.length > 0) {
+    const lastEvent = events[events.length - 1];
+    return lastEvent.strategy || lastEvent.current_strategy || lastEvent.name || null;
+  }
+  const list = payload.strategies_completed ?? payload.completed_strategies ??
+    progress.strategies_completed ?? progress.completed_strategies;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const last = list[list.length - 1];
+  if (typeof last === 'string') return last;
+  return last.strategy || last.current_strategy || last.name || null;
+}
+
+function extractCompletedStrategyEvents(payload, progress) {
+  const events = payload.strategy_completed_events ?? progress.strategy_completed_events;
+  return Array.isArray(events) ? events : [];
+}
+
+function estimateFromRecentStrategies(payload, progress) {
+  const events = extractCompletedStrategyEvents(payload, progress)
+    .map(event => Number(event.elapsed_s ?? event.processing_time_s ?? event.elapsed_seconds))
+    .filter(value => Number.isFinite(value) && value >= 0);
+  const empty = { mean: 0, min: 0, max: 0, highVariance: false };
+  if (events.length < 5) return empty;
+
+  const durations = [];
+  for (let i = 1; i < events.length; i++) {
+    const duration = events[i] - events[i - 1];
+    if (Number.isFinite(duration) && duration > 0) durations.push(duration);
+  }
+  const recent = durations.slice(-3);
+  if (recent.length === 0) return empty;
+  const mean = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+  const min = Math.min(...recent);
+  const max = Math.max(...recent);
+  const highVariance = min > 0 && max / min >= 3;
+  return { mean, min, max, highVariance };
 }
 
 function extractProgressNumber(payload, progress, keys) {
@@ -1238,6 +1341,10 @@ function formatDuration(ms) {
   const min = Math.floor(total / 60);
   const sec = total % 60;
   return min > 0 ? `${min}m ${String(sec).padStart(2, '0')}s` : `${sec}s`;
+}
+
+function formatMinutes(seconds) {
+  return `${Math.max(1, Math.ceil(seconds / 60))}min`;
 }
 
 /* ── Score ring ── */

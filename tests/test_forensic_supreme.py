@@ -494,5 +494,105 @@ def test_progress_audit_logger_logs_every_30_seconds(monkeypatch):
         "task_started",
         "strategy_completed",
         "strategy_completed",
+        "strategy_completed",
+        "strategy_completed",
+        "strategy_completed",
     ]
-    assert [entry["processing_time_s"] for entry in logs] == [0.0, 30.0, 60.0]
+    assert [entry["extra"].get("strategy") for entry in logs[1:]] == ["a", "b", "c", "d", "e"]
+    assert [entry["processing_time_s"] for entry in logs] == [0.0, 5.0, 29.0, 30.0, 59.0, 60.0]
+
+
+def test_progress_audit_logger_updates_analysis_status(monkeypatch, tmp_path: Path):
+    import app.api.routes.pipeline as pipeline_route
+    import app.modules.analysis.analysis_store as store
+
+    monkeypatch.setattr(store, "_ANALYSES_DIR", tmp_path / "analyses")
+    monkeypatch.setattr(pipeline_route, "log_audit_entry", lambda **_kwargs: None)
+    ticks = iter([0.0, 1.7, 2.4, 3.1])
+    monkeypatch.setattr(pipeline_route.time, "perf_counter", lambda: next(ticks))
+
+    analysis_id = store.new_analysis_id()
+    store.create_analysis(analysis_id)
+    store.update_status(analysis_id, "running")
+    progress = pipeline_route._build_progress_audit_logger(
+        request_id="req",
+        ip="test",
+        endpoint="/pipeline/corrupt-and-repair",
+        filename="image.png",
+        sha256="sha",
+        corruption_type="zone_deletion",
+        started_at=0.0,
+        analysis_id=analysis_id,
+    )
+
+    progress("supreme_plan", {"total_strategies": 23})
+    progress("strategy_completed", {"strategy": "inpainting_r3", "score": 12.5})
+    progress("strategy_completed", {"strategy": "inpainting_r5", "score": 24.0})
+    progress("strategy_completed", {"strategy": "inpainting_r7", "score": 37.6})
+
+    status = store.get_status(analysis_id)
+    assert status["status"] == "running"
+    assert status["strategies_completed"] == 3
+    assert status["total_strategies"] == 23
+    assert status["last_strategy"] == "inpainting_r7"
+    assert status["last_score"] == 37.6
+    assert status["elapsed_s"] == 3.1
+    assert [event["strategy"] for event in status["strategy_completed_events"]] == [
+        "inpainting_r3",
+        "inpainting_r5",
+        "inpainting_r7",
+    ]
+
+
+def test_progress_audit_logger_updates_running_strategy_status(monkeypatch, tmp_path: Path):
+    import app.api.routes.pipeline as pipeline_route
+    import app.modules.analysis.analysis_store as store
+
+    monkeypatch.setattr(store, "_ANALYSES_DIR", tmp_path / "analyses")
+    monkeypatch.setattr(pipeline_route, "log_audit_entry", lambda **_kwargs: None)
+    ticks = iter([2.0])
+    monkeypatch.setattr(pipeline_route.time, "perf_counter", lambda: next(ticks))
+
+    analysis_id = store.new_analysis_id()
+    store.create_analysis(analysis_id)
+    store.update_status(analysis_id, "running", extra={"strategies_completed": 2})
+    progress = pipeline_route._build_progress_audit_logger(
+        request_id="req",
+        ip="test",
+        endpoint="/pipeline/corrupt-and-repair",
+        filename="image.png",
+        sha256="sha",
+        corruption_type="zone_deletion",
+        started_at=0.0,
+        analysis_id=analysis_id,
+    )
+
+    progress("strategy_running", {"strategy": "patchmatch_p15_i20"})
+    status = store.get_status(analysis_id)
+    assert status["phase"] == "strategy_running"
+    assert status["strategies_completed"] == 2
+    assert status["last_strategy"] == "patchmatch_p15_i20"
+    assert status["elapsed_s"] == 2.0
+
+
+def test_supreme_strategy_heartbeat_emits_running_progress(monkeypatch, tmp_path: Path):
+    import time as _time
+    import app.modules.reconstruction.repair_pipeline as repair
+
+    events: list[tuple[str, dict]] = []
+    monkeypatch.setattr(repair, "_SUPREME_RUNNING_UPDATE_INTERVAL_S", 0.01)
+    stop_event, thread = repair._start_supreme_strategy_heartbeat(
+        lambda phase, details: events.append((phase, details)),
+        "patchmatch",
+        "patchmatch_p15_i20",
+        tmp_path / "sup_input.png",
+    )
+
+    assert stop_event is not None
+    assert thread is not None
+    _time.sleep(0.04)
+    stop_event.set()
+    thread.join(timeout=0.2)
+
+    assert any(phase == "strategy_running" for phase, _details in events)
+    assert all(details["strategy"] == "patchmatch_p15_i20" for _phase, details in events)
