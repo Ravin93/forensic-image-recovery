@@ -1158,9 +1158,17 @@ function updateSupremeProgressText(payload) {
   ]);
   const strategiesRemaining = Math.max(0, strategiesTotal - strategiesDone);
   const isTerminal = status === 'completed' || status === 'failed';
-  const statusText = status === 'pending'
-    ? `En attente — ${strategy}...`
-    : `Stratégie ${Math.min(strategiesDone + 1, strategiesTotal)}/${strategiesTotal} — ${strategy}...`;
+  const phase = payload.phase || progress.phase || '';
+  const currentPosition = Math.min(strategiesDone + 1, strategiesTotal);
+  const failedStrategy =
+    payload.current_strategy || payload.strategy ||
+    progress.current_strategy || progress.strategy ||
+    `${currentPosition}/${strategiesTotal}`;
+  const statusText = phase === 'strategy_failed'
+    ? `Stratégie ${failedStrategy} échouée, passage à la suivante...`
+    : status === 'pending'
+      ? `En attente — ${strategy}...`
+      : `Stratégie ${currentPosition}/${strategiesTotal} — ${strategy}...`;
   const suffix = payload.transient_error ? ` · reconnexion (${esc(payload.transient_error)})` : '';
 
   const statusEl = document.getElementById('supreme-status');

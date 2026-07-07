@@ -288,8 +288,15 @@ def test_forensic_supreme_candidate_runs_criminisi(monkeypatch, tmp_path: Path):
 def test_forensic_supreme_reinjects_best_candidate_per_family(monkeypatch, tmp_path: Path):
     import app.modules.reconstruction.repair_pipeline as repair
 
+    (tmp_path / "corrupted.png").write_bytes(b"source")
     calls: list[tuple[str, str, str]] = []
+    copies: list[tuple[str, str]] = []
     family_counts: dict[str, int] = {}
+    real_copy = repair.shutil.copy
+
+    def tracked_copy(src, dst, *args, **kwargs):
+        copies.append((str(src), str(dst)))
+        return real_copy(src, dst, *args, **kwargs)
 
     def fake_candidate(plan, input_image_path, *_args, **_kwargs):
         family = str(plan["family"])
@@ -303,6 +310,7 @@ def test_forensic_supreme_reinjects_best_candidate_per_family(monkeypatch, tmp_p
 
     monkeypatch.setattr(repair, "_run_repair_plan_candidate", fake_candidate)
     monkeypatch.setattr(repair, "_run_iterative_pass", lambda *args, **kwargs: None)
+    monkeypatch.setattr(repair.shutil, "copy", tracked_copy)
 
     candidates, chain = repair._run_forensic_supreme_candidates(
         corrupted_image_path=tmp_path / "corrupted.png",
@@ -320,10 +328,17 @@ def test_forensic_supreme_reinjects_best_candidate_per_family(monkeypatch, tmp_p
     assert len(calls) == len(expected_plan)
     assert any(strategy == "patchmatch_p15_i20" for _family, strategy, _input in calls)
 
-    for idx in range(1, len(chain)):
-        family = chain[idx]["family"]
-        family_inputs = {input_path for call_family, _strategy, input_path in calls if call_family == family}
-        assert family_inputs == {chain[idx - 1]["selected_path"]}
+    for _family, _strategy, input_path in calls:
+        path = Path(input_path)
+        assert path.name.startswith("sup_")
+        assert path.exists()
+
+    for (source_path, _short_path), (family, _strategy, _input_path) in zip(copies, calls):
+        if family == chain[0]["family"]:
+            assert source_path == str(tmp_path / "corrupted.png")
+        else:
+            previous = chain[[entry["family"] for entry in chain].index(family) - 1]
+            assert source_path == previous["selected_path"]
 
 
 def test_run_repair_pipeline_forensic_supreme_ignores_max_attempts(monkeypatch, tmp_path: Path):

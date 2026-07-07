@@ -812,17 +812,19 @@ def _run_forensic_supreme_candidates(
         for item in grouped[family]:
             logger.info("Executing supreme strategy: %s", item["strategy"])
             strategy = str(item["strategy"])
+            short_input = out_dir / f"sup_{uuid.uuid4().hex[:8]}.png"
+            shutil.copy(str(family_input), str(short_input))
             _emit_progress(
                 progress_callback, "strategy_started",
-                family=family, strategy=strategy, input_path=str(family_input),
+                family=family, strategy=strategy, input_path=str(short_input),
             )
             try:
                 candidate = _run_repair_plan_candidate(
-                    item, family_input, corrupted_image_path, mask_path_obj,
+                    item, short_input, corrupted_image_path, mask_path_obj,
                     original_image_path, method, base_radius, out_dir, mask_arr,
                 )
                 if candidate:
-                    candidate["supreme_input_path"] = str(family_input)
+                    candidate["supreme_input_path"] = str(short_input)
                     candidate["supreme_family"] = family
                     family_candidates.append(candidate)
                     candidates.append(candidate)
