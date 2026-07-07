@@ -33,6 +33,16 @@ def _rolling_hash(data: bytes, window: int = 64) -> list[int]:
     return hashes
 
 
+def _rolling_hash_similarity(tail: bytes, head: bytes, window: int) -> float:
+    tail_hashes = set(_rolling_hash(tail, window=window))
+    head_hashes = set(_rolling_hash(head, window=window))
+    if not tail_hashes or not head_hashes:
+        return 0.0
+    common = len(tail_hashes & head_hashes)
+    total = max(len(tail_hashes), len(head_hashes), 1)
+    return float(common / total)
+
+
 def _overlap_score(tail: bytes, head: bytes, overlap: int = 64) -> float:
     """Score de continuité entre la fin d'un fragment et le début du suivant.
 
@@ -44,7 +54,10 @@ def _overlap_score(tail: bytes, head: bytes, overlap: int = 64) -> float:
     tail_end = np.frombuffer(tail[-overlap:], dtype=np.uint8).astype(np.float32)
     head_start = np.frombuffer(head[:overlap], dtype=np.uint8).astype(np.float32)
     mse = float(np.mean((tail_end - head_start) ** 2))
-    return float(max(0.0, 1.0 - mse / (255.0 ** 2)))
+    mse_score = float(max(0.0, 1.0 - mse / (255.0 ** 2)))
+    window = max(8, min(64, overlap // 2))
+    hash_score = _rolling_hash_similarity(tail[-overlap:], head[:overlap], window)
+    return float(0.65 * mse_score + 0.35 * hash_score)
 
 
 def _continuity_score(frag_a: bytes, frag_b: bytes) -> float:
