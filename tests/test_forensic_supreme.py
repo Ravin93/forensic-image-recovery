@@ -34,6 +34,92 @@ def test_forensic_supreme_plan_adds_patchmatch_15_20():
     )
 
 
+def test_forensic_supreme_plan_adds_criminisi_only_there():
+    from app.modules.reconstruction.repair_pipeline import (
+        _build_adaptive_plan,
+        _build_forensic_supreme_plan,
+    )
+
+    supreme = _build_forensic_supreme_plan("zone_deletion", 3, "inpainting")
+    adaptive = _build_adaptive_plan("zone_deletion", 3, "inpainting")
+    criminisi = [item for item in supreme if item["family"] == "criminisi"]
+
+    assert [item["strategy"] for item in criminisi] == ["criminisi_p9", "criminisi_p15"]
+    assert [item["patch_size"] for item in criminisi] == [9, 15]
+    assert not any(item["family"] == "criminisi" for item in adaptive)
+
+
+def test_criminisi_inpaint_returns_reconstruction(tmp_path: Path):
+    from app.modules.reconstruction.inpainting import criminisi_inpaint
+
+    image = np.zeros((48, 48, 3), dtype=np.uint8)
+    image[:, :, 0] = np.arange(48, dtype=np.uint8)
+    image[:, :, 1] = np.arange(48, dtype=np.uint8)[:, None]
+    image[:, :, 2] = 120
+    mask = np.zeros((48, 48), dtype=np.uint8)
+    mask[18:28, 18:28] = 255
+
+    image_path = tmp_path / "corrupted.png"
+    mask_path = tmp_path / "mask.png"
+    cv2.imwrite(str(image_path), image)
+    cv2.imwrite(str(mask_path), mask)
+
+    result = criminisi_inpaint(image_path, mask_path, patch_size=9)
+
+    assert result["method"] == "criminisi_p9"
+    assert result["patch_size"] == 9
+    assert Path(result["path"]).exists()
+    out = cv2.imread(result["path"])
+    assert out.shape == image.shape
+
+
+def test_forensic_supreme_candidate_runs_criminisi(monkeypatch, tmp_path: Path):
+    import app.modules.reconstruction.repair_pipeline as repair
+
+    image = np.zeros((32, 32, 3), dtype=np.uint8)
+    mask = np.zeros((32, 32), dtype=np.uint8)
+    image_path = tmp_path / "corrupted.png"
+    mask_path = tmp_path / "mask.png"
+    out_path = tmp_path / "criminisi.png"
+    cv2.imwrite(str(image_path), image)
+    cv2.imwrite(str(mask_path), mask)
+    cv2.imwrite(str(out_path), image)
+
+    captured: dict[str, object] = {}
+
+    def fake_criminisi(image_arg, mask_arg, patch_size):
+        captured.update({"image": image_arg, "mask": mask_arg, "patch_size": patch_size})
+        return {"path": str(out_path), "method": f"criminisi_p{patch_size}"}
+
+    monkeypatch.setattr(repair, "criminisi_inpaint", fake_criminisi)
+    monkeypatch.setattr(
+        repair,
+        "_candidate_from_path",
+        lambda name, path, *_args, **kwargs: {
+            "strategy": name,
+            "path": str(path),
+            "score": 12.0,
+            **(kwargs.get("extra") or {}),
+        },
+    )
+
+    candidate = repair._run_repair_plan_candidate(
+        {"strategy": "criminisi_p15", "family": "criminisi", "patch_size": 15},
+        image_path,
+        image_path,
+        mask_path,
+        None,
+        "opencv_inpaint",
+        3,
+        tmp_path,
+        None,
+    )
+
+    assert captured["patch_size"] == 15
+    assert candidate["strategy"] == "criminisi_p15"
+    assert candidate["family"] == "criminisi"
+
+
 def test_forensic_supreme_reinjects_best_candidate_per_family(monkeypatch, tmp_path: Path):
     import app.modules.reconstruction.repair_pipeline as repair
 

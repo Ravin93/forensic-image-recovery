@@ -19,7 +19,7 @@ from app.modules.evaluation.metrics import score_candidate as _metrics_score_can
 from app.modules.reconstruction.block_repair import repair_blocks
 from app.modules.reconstruction.deblurring import deblur
 from app.modules.reconstruction.denoising import denoise_image
-from app.modules.reconstruction.inpainting import reconstruct_with_inpaint
+from app.modules.reconstruction.inpainting import criminisi_inpaint, reconstruct_with_inpaint
 try:
     from app.modules.reconstruction.patchmatch import patchmatch_inpaint as _patchmatch_inpaint
     _PATCHMATCH_AVAILABLE = True
@@ -193,6 +193,20 @@ def _build_forensic_supreme_plan(
             plan.insert(last_patchmatch_idx + 1, supreme_patchmatch)
         else:
             plan.append(supreme_patchmatch)
+
+    last_inpainting_idx = max(
+        (idx for idx, p in enumerate(plan) if p.get("family") == "inpainting"),
+        default=-1,
+    )
+    criminisi_plans = [
+        {"strategy": "criminisi_p9", "family": "criminisi", "patch_size": 9},
+        {"strategy": "criminisi_p15", "family": "criminisi", "patch_size": 15},
+    ]
+    existing_criminisi = {str(p.get("strategy")) for p in plan if p.get("family") == "criminisi"}
+    criminisi_plans = [p for p in criminisi_plans if p["strategy"] not in existing_criminisi]
+    if criminisi_plans:
+        insert_at = last_inpainting_idx + 1 if last_inpainting_idx >= 0 else len(plan)
+        plan[insert_at:insert_at] = criminisi_plans
     return plan
 
 
@@ -352,6 +366,19 @@ def _run_repair_plan_candidate(
         return _candidate_from_path(
             strategy, result["path"], scoring_image_path, original_image_path,
             extra={"radius": int(plan["radius"]), "family": family},
+            mask=mask_arr,
+        )
+
+    if family == "criminisi":
+        if mask_path_obj is None:
+            return None
+        result = criminisi_inpaint(
+            input_image_path, mask_path_obj,
+            patch_size=int(plan["patch_size"]),
+        )
+        return _candidate_from_path(
+            strategy, result["path"], scoring_image_path, original_image_path,
+            extra={"patch_size": int(plan["patch_size"]), "family": family},
             mask=mask_arr,
         )
 
