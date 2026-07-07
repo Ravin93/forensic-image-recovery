@@ -134,6 +134,8 @@ def test_meta_regional_strategy_fuses_regions(monkeypatch, tmp_path: Path):
     )
 
     assert candidate["strategy"] == "meta_regional"
+    assert candidate["selected_strategy"] == "meta_regional"
+    assert candidate["selected_score"] == 90.0
     assert candidate["region_count"] == 2
     assert candidate["fusion"] == "gaussian_blending"
     assert {r["selected_strategy"] for r in candidate["regions"]} == {"inpainting_r7", "patchmatch_p11"}

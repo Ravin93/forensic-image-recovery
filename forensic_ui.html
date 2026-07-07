@@ -1161,7 +1161,7 @@ async function loadSupremeResult(analysisId) {
   const statusEl = document.getElementById('supreme-status');
   const etaEl = document.getElementById('supreme-eta');
   if (statusEl) statusEl.textContent = 'Analyse terminée — chargement du résultat…';
-  if (etaEl) etaEl.textContent = 'Estimation du temps restant : 0s';
+  if (etaEl) etaEl.style.display = 'none';
 
   try {
     const r = await fetch(`${API}/analysis/${encodeURIComponent(analysisId)}/result`);

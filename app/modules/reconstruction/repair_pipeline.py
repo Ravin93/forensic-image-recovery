@@ -590,6 +590,8 @@ def _run_meta_regional_strategy(
     _, details = _score_candidate(scoring_image_path, path, original_image_path)
     return {
         "strategy": "meta_regional",
+        "selected_strategy": "meta_regional",
+        "selected_score": float(weighted_score),
         "path": path,
         "score": float(weighted_score),
         "family": "meta_regional",
