@@ -207,6 +207,8 @@ def _build_forensic_supreme_plan(
     if criminisi_plans:
         insert_at = last_inpainting_idx + 1 if last_inpainting_idx >= 0 else len(plan)
         plan[insert_at:insert_at] = criminisi_plans
+    if not any(p.get("strategy") == "meta_regional" for p in plan):
+        plan.append({"strategy": "meta_regional", "family": "meta_regional"})
     return plan
 
 
@@ -311,6 +313,302 @@ def _emit_progress(
         logger.debug("Progress callback failed (%s): %s", phase, exc)
 
 
+def _region_type_from_stats(
+    variance_value: float,
+    gradient_value: float,
+    variance_threshold: float,
+    gradient_threshold: float,
+) -> str:
+    if gradient_value >= gradient_threshold:
+        return "strong_edges"
+    if variance_value >= variance_threshold:
+        return "textured"
+    return "homogeneous"
+
+
+def _split_region_mask(region_mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    ys, xs = np.where(region_mask > 0)
+    if len(ys) <= 1:
+        return region_mask.copy(), np.zeros_like(region_mask)
+
+    y_span = int(ys.max() - ys.min())
+    x_span = int(xs.max() - xs.min())
+    first = np.zeros_like(region_mask)
+    second = np.zeros_like(region_mask)
+    if x_span >= y_span:
+        pivot = int(np.median(xs))
+        first[(region_mask > 0) & (np.indices(region_mask.shape)[1] <= pivot)] = 255
+        second[(region_mask > 0) & (np.indices(region_mask.shape)[1] > pivot)] = 255
+    else:
+        pivot = int(np.median(ys))
+        first[(region_mask > 0) & (np.indices(region_mask.shape)[0] <= pivot)] = 255
+        second[(region_mask > 0) & (np.indices(region_mask.shape)[0] > pivot)] = 255
+    return first, second
+
+
+def _segment_mask_regions(
+    image_path: str | Path,
+    mask_path: str | Path,
+    min_regions: int = 2,
+    max_regions: int = 6,
+) -> list[dict[str, Any]]:
+    image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise ReconstructionError(f"Impossible de charger l'image : {image_path}")
+    if mask is None:
+        raise ReconstructionError(f"Impossible de charger le masque : {mask_path}")
+
+    _, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
+    if not (mask > 0).any():
+        return []
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray_f = gray.astype(np.float32)
+    mean = cv2.blur(gray_f, (9, 9))
+    mean_sq = cv2.blur(gray_f * gray_f, (9, 9))
+    local_variance = np.maximum(mean_sq - mean * mean, 0.0)
+    grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    gradient = cv2.magnitude(grad_x, grad_y)
+
+    masked = mask > 0
+    variance_threshold = float(np.percentile(local_variance[masked], 60))
+    gradient_threshold = float(np.percentile(gradient[masked], 70))
+
+    labels = np.zeros(mask.shape, dtype=np.uint8)
+    labels[(local_variance >= variance_threshold) & masked] = 2
+    labels[(gradient >= gradient_threshold) & masked] = 3
+
+    regions: list[dict[str, Any]] = []
+    for label, fallback_type in [(3, "strong_edges"), (2, "textured"), (0, "homogeneous")]:
+        class_mask = np.zeros_like(mask)
+        if label == 0:
+            class_mask[(labels == 0) & masked] = 255
+        else:
+            class_mask[labels == label] = 255
+        if not (class_mask > 0).any():
+            continue
+
+        count, component_labels, stats, _ = cv2.connectedComponentsWithStats(class_mask, 8)
+        for idx in range(1, count):
+            area = int(stats[idx, cv2.CC_STAT_AREA])
+            if area <= 0:
+                continue
+            region_mask = np.zeros_like(mask)
+            region_mask[component_labels == idx] = 255
+            pix = region_mask > 0
+            region_type = _region_type_from_stats(
+                float(local_variance[pix].mean()),
+                float(gradient[pix].mean()),
+                variance_threshold,
+                gradient_threshold,
+            )
+            if label == 3:
+                region_type = "strong_edges"
+            elif label == 2 and region_type == "homogeneous":
+                region_type = fallback_type
+            regions.append({"mask": region_mask, "type": region_type, "area": area})
+
+    if not regions:
+        regions.append({"mask": mask.copy(), "type": "homogeneous", "area": int(masked.sum())})
+
+    regions.sort(key=lambda r: int(r["area"]), reverse=True)
+    while len(regions) < min_regions and int(regions[0]["area"]) > 1:
+        largest = regions.pop(0)
+        first, second = _split_region_mask(largest["mask"])
+        split_parts = [m for m in (first, second) if (m > 0).any()]
+        if len(split_parts) < 2:
+            regions.insert(0, largest)
+            break
+        for part in split_parts:
+            pix = part > 0
+            regions.append({
+                "mask": part,
+                "type": _region_type_from_stats(
+                    float(local_variance[pix].mean()),
+                    float(gradient[pix].mean()),
+                    variance_threshold,
+                    gradient_threshold,
+                ),
+                "area": int(pix.sum()),
+            })
+        regions.sort(key=lambda r: int(r["area"]), reverse=True)
+
+    if len(regions) > max_regions:
+        kept = regions[:max_regions - 1]
+        merged_mask = np.zeros_like(mask)
+        for region in regions[max_regions - 1:]:
+            merged_mask[region["mask"] > 0] = 255
+        pix = merged_mask > 0
+        kept.append({
+            "mask": merged_mask,
+            "type": _region_type_from_stats(
+                float(local_variance[pix].mean()),
+                float(gradient[pix].mean()),
+                variance_threshold,
+                gradient_threshold,
+            ),
+            "area": int(pix.sum()),
+        })
+        regions = kept
+
+    return regions[:max_regions]
+
+
+def _regional_strategy_plan(region_type: str) -> list[dict[str, Any]]:
+    if region_type == "strong_edges":
+        return [
+            {"strategy": "criminisi_p9", "family": "criminisi", "patch_size": 9},
+            {"strategy": "criminisi_p15", "family": "criminisi", "patch_size": 15},
+            {"strategy": "inpainting_r3", "family": "inpainting", "radius": 3},
+        ]
+    if region_type == "textured":
+        return [
+            {"strategy": "patchmatch_p11", "family": "patchmatch", "patch_size": 11, "iterations": 7},
+            {"strategy": "criminisi_p15", "family": "criminisi", "patch_size": 15},
+            {"strategy": "patchmatch_p9", "family": "patchmatch", "patch_size": 9, "iterations": 5},
+        ]
+    return [
+        {"strategy": "inpainting_r7", "family": "inpainting", "radius": 7},
+        {"strategy": "inpainting_r5", "family": "inpainting", "radius": 5},
+        {"strategy": "criminisi_p9", "family": "criminisi", "patch_size": 9},
+    ]
+
+
+def _run_regional_strategy(
+    plan: dict[str, Any],
+    image_path: Path,
+    region_mask_path: Path,
+    method: str,
+) -> dict[str, Any] | None:
+    family = str(plan["family"])
+    if family == "inpainting":
+        return reconstruct_with_inpaint(
+            image_path,
+            region_mask_path,
+            method=method,
+            radius=int(plan["radius"]),
+        )
+    if family == "criminisi":
+        return criminisi_inpaint(
+            image_path,
+            region_mask_path,
+            patch_size=int(plan["patch_size"]),
+        )
+    if family == "patchmatch" and _PATCHMATCH_AVAILABLE:
+        return _patchmatch_inpaint(
+            image_path,
+            region_mask_path,
+            patch_size=int(plan["patch_size"]),
+            iterations=int(plan["iterations"]),
+        )
+    return None
+
+
+def _blend_region(
+    base: np.ndarray,
+    candidate: np.ndarray,
+    region_mask: np.ndarray,
+) -> np.ndarray:
+    mask = (region_mask > 0).astype(np.float32)
+    kernel = max(5, int(round(min(region_mask.shape) * 0.04)) | 1)
+    alpha = cv2.GaussianBlur(mask, (kernel, kernel), 0)
+    alpha = np.clip(alpha, 0.0, 1.0)[..., np.newaxis]
+    blended = base.astype(np.float32) * (1.0 - alpha) + candidate.astype(np.float32) * alpha
+    return np.clip(blended, 0, 255).astype(np.uint8)
+
+
+def _run_meta_regional_strategy(
+    input_image_path: Path,
+    scoring_image_path: Path,
+    mask_path_obj: Path,
+    original_image_path: Path | None,
+    method: str,
+    out_dir: Path,
+) -> dict[str, Any] | None:
+    regions = _segment_mask_regions(input_image_path, mask_path_obj)
+    if len(regions) < 2:
+        return None
+
+    fused = cv2.imread(str(input_image_path), cv2.IMREAD_COLOR)
+    if fused is None:
+        raise ReconstructionError(f"Impossible de charger l'image : {input_image_path}")
+
+    region_results: list[dict[str, Any]] = []
+    total_area = float(sum(int(r["area"]) for r in regions)) or 1.0
+
+    for idx, region in enumerate(regions):
+        region_mask = region["mask"]
+        region_mask_path = out_dir / f"{input_image_path.stem}_meta_region_{idx}.png"
+        cv2.imwrite(str(region_mask_path), region_mask)
+        best_candidate: dict[str, Any] | None = None
+
+        for plan in _regional_strategy_plan(str(region["type"])):
+            try:
+                result = _run_regional_strategy(plan, input_image_path, region_mask_path, method)
+                if not result or not Path(result["path"]).exists():
+                    continue
+                score, details = _score_candidate(
+                    scoring_image_path,
+                    result["path"],
+                    original_image_path,
+                    mask=region_mask,
+                )
+                candidate = {
+                    "strategy": str(plan["strategy"]),
+                    "path": result["path"],
+                    "score": score,
+                    "region_type": region["type"],
+                    "region_index": idx,
+                    "region_area": int(region["area"]),
+                    **details,
+                }
+                if best_candidate is None or score > float(best_candidate.get("score", 0.0)):
+                    best_candidate = candidate
+            except Exception as exc:
+                logger.debug("Meta-regional candidate failed (%s): %s", plan.get("strategy"), exc)
+
+        if best_candidate is None:
+            continue
+
+        candidate_img = cv2.imread(str(best_candidate["path"]), cv2.IMREAD_COLOR)
+        if candidate_img is None:
+            continue
+        fused = _blend_region(fused, candidate_img, region_mask)
+        region_results.append(best_candidate)
+
+    if not region_results:
+        return None
+
+    output_path = out_dir / f"{input_image_path.stem}_meta_regional.png"
+    path = _save_image(output_path, fused)
+    weighted_score = sum(
+        float(r["score"]) * (float(r["region_area"]) / total_area)
+        for r in region_results
+    )
+    _, details = _score_candidate(scoring_image_path, path, original_image_path)
+    return {
+        "strategy": "meta_regional",
+        "path": path,
+        "score": float(weighted_score),
+        "family": "meta_regional",
+        "regions": [
+            {
+                "index": int(r["region_index"]),
+                "type": str(r["region_type"]),
+                "area": int(r["region_area"]),
+                "selected_strategy": str(r["strategy"]),
+                "score": float(r["score"]),
+            }
+            for r in region_results
+        ],
+        "region_count": len(region_results),
+        "fusion": "gaussian_blending",
+        **{k: v for k, v in details.items() if k != "score"},
+    }
+
+
 def _run_repair_plan_candidate(
     plan: dict[str, Any],
     input_image_path: Path,
@@ -380,6 +678,18 @@ def _run_repair_plan_candidate(
             strategy, result["path"], scoring_image_path, original_image_path,
             extra={"patch_size": int(plan["patch_size"]), "family": family},
             mask=mask_arr,
+        )
+
+    if family == "meta_regional":
+        if mask_path_obj is None:
+            return None
+        return _run_meta_regional_strategy(
+            input_image_path=input_image_path,
+            scoring_image_path=scoring_image_path,
+            mask_path_obj=mask_path_obj,
+            original_image_path=original_image_path,
+            method=method,
+            out_dir=out_dir,
         )
 
     if family == "denoise":

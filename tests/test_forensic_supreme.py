@@ -49,6 +49,97 @@ def test_forensic_supreme_plan_adds_criminisi_only_there():
     assert not any(item["family"] == "criminisi" for item in adaptive)
 
 
+def test_forensic_supreme_plan_adds_meta_regional_only_there():
+    from app.modules.reconstruction.repair_pipeline import (
+        _build_adaptive_plan,
+        _build_forensic_supreme_plan,
+    )
+
+    supreme = _build_forensic_supreme_plan("zone_deletion", 3, "inpainting")
+    adaptive = _build_adaptive_plan("zone_deletion", 3, "inpainting")
+
+    assert any(item["strategy"] == "meta_regional" for item in supreme)
+    assert not any(item.get("strategy") == "meta_regional" for item in adaptive)
+
+
+def test_meta_regional_segmentation_bounds_regions(tmp_path: Path):
+    from app.modules.reconstruction.repair_pipeline import _segment_mask_regions
+
+    image = np.zeros((72, 72, 3), dtype=np.uint8)
+    image[:, :36] = 40
+    rng = np.random.default_rng(7)
+    image[:, 36:] = rng.integers(0, 255, size=(72, 36, 3), dtype=np.uint8)
+    cv2.line(image, (8, 8), (64, 64), (255, 255, 255), 2)
+
+    mask = np.zeros((72, 72), dtype=np.uint8)
+    mask[12:60, 10:62] = 255
+    image_path = tmp_path / "masked.png"
+    mask_path = tmp_path / "mask.png"
+    cv2.imwrite(str(image_path), image)
+    cv2.imwrite(str(mask_path), mask)
+
+    regions = _segment_mask_regions(image_path, mask_path)
+
+    assert 2 <= len(regions) <= 6
+    assert sum(int(region["area"]) for region in regions) == int((mask > 0).sum())
+    assert {region["type"] for region in regions} <= {"homogeneous", "textured", "strong_edges"}
+
+
+def test_meta_regional_strategy_fuses_regions(monkeypatch, tmp_path: Path):
+    import app.modules.reconstruction.repair_pipeline as repair
+
+    image = np.zeros((40, 40, 3), dtype=np.uint8)
+    mask = np.zeros((40, 40), dtype=np.uint8)
+    mask[:, :20] = 255
+    mask[:, 20:] = 255
+    image_path = tmp_path / "corrupted.png"
+    mask_path = tmp_path / "mask.png"
+    cv2.imwrite(str(image_path), image)
+    cv2.imwrite(str(mask_path), mask)
+
+    region_a = np.zeros((40, 40), dtype=np.uint8)
+    region_b = np.zeros((40, 40), dtype=np.uint8)
+    region_a[:, :20] = 255
+    region_b[:, 20:] = 255
+    monkeypatch.setattr(
+        repair,
+        "_segment_mask_regions",
+        lambda *_args, **_kwargs: [
+            {"mask": region_a, "type": "homogeneous", "area": int((region_a > 0).sum())},
+            {"mask": region_b, "type": "textured", "area": int((region_b > 0).sum())},
+        ],
+    )
+
+    def fake_run(plan, _image_path, _region_mask_path, _method):
+        value = 80 if plan["strategy"] in {"inpainting_r7", "patchmatch_p11"} else 20
+        out = np.zeros((40, 40, 3), dtype=np.uint8) + value
+        path = tmp_path / f"{plan['strategy']}.png"
+        cv2.imwrite(str(path), out)
+        return {"path": str(path)}
+
+    def fake_score(_corrupted, candidate_path, _original=None, mask=None):
+        score = 90.0 if "inpainting_r7" in str(candidate_path) or "patchmatch_p11" in str(candidate_path) else 10.0
+        return score, {"mode": "supervised", "score": score, "region_pixels": int((mask > 0).sum()) if mask is not None else 0}
+
+    monkeypatch.setattr(repair, "_run_regional_strategy", fake_run)
+    monkeypatch.setattr(repair, "_score_candidate", fake_score)
+
+    candidate = repair._run_meta_regional_strategy(
+        input_image_path=image_path,
+        scoring_image_path=image_path,
+        mask_path_obj=mask_path,
+        original_image_path=image_path,
+        method="opencv_inpaint",
+        out_dir=tmp_path,
+    )
+
+    assert candidate["strategy"] == "meta_regional"
+    assert candidate["region_count"] == 2
+    assert candidate["fusion"] == "gaussian_blending"
+    assert {r["selected_strategy"] for r in candidate["regions"]} == {"inpainting_r7", "patchmatch_p11"}
+    assert Path(candidate["path"]).exists()
+
+
 def test_criminisi_inpaint_returns_reconstruction(tmp_path: Path):
     from app.modules.reconstruction.inpainting import criminisi_inpaint
 
