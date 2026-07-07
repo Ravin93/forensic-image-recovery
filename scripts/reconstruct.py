@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import sys
+from itertools import permutations
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,40 @@ def _write_chain_candidate(chain: list[dict[str, Any]], out_dir: Path, formats: 
     }
 
 
+def _verify_candidate(path: Path, allowed_formats: list[str]) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        **verify_image(path, allowed_formats=allowed_formats),
+    }
+
+
+def _find_report_source(input_path: Path) -> Path:
+    if input_path.is_dir():
+        return list(input_path.glob("*.bin"))[0]
+    return input_path
+
+
+def _try_valid_permutation(
+    fragments: list[dict[str, Any]],
+    out_dir: Path,
+    formats: list[str],
+    allowed_formats: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]] | None:
+    if len(fragments) > 4:
+        return None
+
+    for order in permutations(fragments):
+        candidate_chain = [dict(fragment) for fragment in order]
+        if candidate_chain:
+            candidate_chain[0]["continuity_score"] = 1.0
+        assembly_result = _write_chain_candidate(candidate_chain, out_dir, formats)
+        validation = _verify_candidate(Path(assembly_result["path"]), allowed_formats)
+        if validation["valid"]:
+            return candidate_chain, assembly_result, validation
+
+    return None
+
+
 def reconstruct(input_path: Path, out_dir: Path, formats: list[str]) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     allowed_formats = _allowed_image_formats(formats)
@@ -114,7 +149,12 @@ def reconstruct(input_path: Path, out_dir: Path, formats: list[str]) -> dict[str
     assembly_result: dict[str, Any]
     if input_path.is_dir() or not validation_targets:
         assembly_result = _write_chain_candidate(chain, out_dir, formats)
-        validation_targets = [Path(assembly_result["path"])]
+        validation = _verify_candidate(Path(assembly_result["path"]), allowed_formats)
+        if not validation["valid"]:
+            permutation_result = _try_valid_permutation(fragments, out_dir, formats, allowed_formats)
+            if permutation_result is not None:
+                chain, assembly_result, validation = permutation_result
+        validations = [validation]
     else:
         scores = [float(fragment.get("continuity_score", 0.0)) for fragment in chain]
         assembly_result = {
@@ -124,17 +164,10 @@ def reconstruct(input_path: Path, out_dir: Path, formats: list[str]) -> dict[str
             "fragment_count": len(chain),
             "assembly_score": sum(scores) / len(scores) if scores else 0.0,
         }
-
-    validations = [
-        {
-            "path": str(path),
-            **verify_image(path, allowed_formats=allowed_formats),
-        }
-        for path in validation_targets
-    ]
+        validations = [_verify_candidate(path, allowed_formats) for path in validation_targets]
 
     fragment_report = build_fragment_report(
-        input_path,
+        _find_report_source(input_path),
         fragments,
         chain,
         assembly_result,

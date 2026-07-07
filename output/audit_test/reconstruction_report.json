@@ -1,0 +1,62 @@
+{
+  "input": "data/dumps/test_audit",
+  "formats": [
+    "jpeg"
+  ],
+  "offsets": [],
+  "extracted": [],
+  "validations": [
+    {
+      "path": "output/audit_test/reconstructed.jpg",
+      "valid": false,
+      "reason": "Image illisible : output/audit_test/reconstructed.jpg",
+      "details": null
+    }
+  ],
+  "fragment_report": {
+    "source_dump": "data/dumps/test_audit/synthetic_dump_1783441555.bin",
+    "sha256_dump": "0bc22066456516cb24756f34730b274a4322510a572c66f74fe7e3dda8715ea7",
+    "total_fragments": 2,
+    "used_fragments": 2,
+    "rejected_fragments": 0,
+    "offsets": [
+      {
+        "index": 1,
+        "offset": 0,
+        "size": 1766,
+        "sha256": "4ab3c354808b91b2c0afea18bacbe5e85fc81ffbbe875dcf299ddd8c0dc398bc"
+      },
+      {
+        "index": 2,
+        "offset": 1,
+        "size": 5453,
+        "sha256": "0bc22066456516cb24756f34730b274a4322510a572c66f74fe7e3dda8715ea7"
+      }
+    ],
+    "fragments_used": [
+      {
+        "index": 1,
+        "offset": 0,
+        "size": 1766,
+        "continuity_score": 1.0,
+        "sha256": "4ab3c354808b91b2c0afea18bacbe5e85fc81ffbbe875dcf299ddd8c0dc398bc"
+      },
+      {
+        "index": 2,
+        "offset": 1,
+        "size": 5453,
+        "continuity_score": 0.46043767983092454,
+        "sha256": "0bc22066456516cb24756f34730b274a4322510a572c66f74fe7e3dda8715ea7"
+      }
+    ],
+    "fragments_rejected": [],
+    "assembly": {
+      "path": "output/audit_test/reconstructed.jpg",
+      "size": 7219,
+      "sha256": "564266534c8d7a5829256b54750fa0658be577c25929fc0a8e8ae6ffb51eadef",
+      "fragment_count": 2,
+      "assembly_score": 0.7302188399154623
+    },
+    "assembly_score": 0.7302188399154623
+  }
+}
