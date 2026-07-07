@@ -1146,6 +1146,7 @@ function updateSupremeProgressText(payload) {
   const strategy = strategyFromApi || SUPREME_STRATEGIES[idx];
   const status = payload.status || 'running';
   const remaining = Math.max(0, supremeState.totalMs - elapsed);
+  const isTerminal = status === 'completed' || status === 'failed';
   const statusText = status === 'pending'
     ? `En attente — ${strategy}...`
     : `Stratégie ${idx + 1}/${SUPREME_STRATEGIES.length} — ${strategy}...`;
@@ -1154,7 +1155,12 @@ function updateSupremeProgressText(payload) {
   const statusEl = document.getElementById('supreme-status');
   const etaEl = document.getElementById('supreme-eta');
   if (statusEl) statusEl.textContent = statusText + suffix;
-  if (etaEl) etaEl.textContent = `Estimation du temps restant : ${formatDuration(remaining)}`;
+  if (etaEl) {
+    etaEl.style.display = isTerminal ? 'none' : '';
+    etaEl.textContent = remaining > 0
+      ? `Estimation du temps restant : ${formatDuration(remaining)}`
+      : `Temps écoulé : ${formatDuration(elapsed)}`;
+  }
 }
 
 async function loadSupremeResult(analysisId) {
