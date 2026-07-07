@@ -289,6 +289,19 @@ header {
   color: var(--accent);
 }
 
+.mode-help {
+  display: none;
+  padding: 0.55rem 0.7rem;
+  background: var(--warn-bg);
+  border: 1px solid rgba(125,107,47,0.35);
+  border-radius: var(--rs);
+  color: var(--warn);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.mode-help.on { display: block; }
+
 /* ─── Run button ─── */
 .run-btn {
   width: 100%;
@@ -698,6 +711,80 @@ table.cand-table { width: 100%; border-collapse: collapse; }
 
 .error-box strong { display: block; margin-bottom: 0.3rem; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; }
 
+/* ─── Forensic Supreme progress ─── */
+.supreme-progress {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.3s forwards;
+}
+
+.supreme-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.supreme-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.supreme-id {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted2);
+}
+
+.supreme-status {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.supreme-eta {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.supreme-track {
+  height: 9px;
+  background: var(--surface2);
+  border-radius: var(--rp);
+  overflow: hidden;
+  position: relative;
+}
+
+.supreme-fill {
+  height: 100%;
+  width: 28%;
+  min-width: 110px;
+  border-radius: var(--rp);
+  background: linear-gradient(90deg, var(--accent), var(--success), var(--accent));
+  background-size: 220% 100%;
+  animation: supremeMove 1.2s linear infinite;
+}
+
+@keyframes supremeMove {
+  from { background-position: 0 0; transform: translateX(-45%); }
+  to   { background-position: 220% 0; transform: translateX(360%); }
+}
+
+.supreme-note {
+  margin-top: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -777,7 +864,12 @@ table.cand-table { width: 100%; border-collapse: collapse; }
         <option value="assisted">Assisté — masque exact</option>
         <option value="blind_basic">Aveugle basique</option>
         <option value="blind_advanced">Aveugle avancé</option>
+        <option value="forensic_supreme">⚡ Forensic Supreme — qualité maximale</option>
       </select>
+      <div class="mode-help" id="supreme-help">
+        Toutes les stratégies testées sans limite de temps.<br>
+        Résultat disponible dans l'historique des analyses.
+      </div>
     </div>
 
     <div class="field">
@@ -824,6 +916,16 @@ const API = 'http://localhost:8000';
 let selectedFile = null;
 let selectedCorruption = 'scratch_lines';
 let selectedSeverity = 'medium';
+let supremePollTimer = null;
+let supremeEtaTimer = null;
+let supremeState = null;
+
+const SUPREME_STRATEGIES = [
+  'inpainting_r3', 'inpainting_r5', 'inpainting_r7',
+  'patchmatch_p7_i5', 'patchmatch_p9_i5', 'patchmatch_p11_i7', 'patchmatch_p15_i20',
+  'denoise_median_blur', 'denoise_gaussian_blur', 'denoise_bilateral',
+  'deblur_light', 'deblur_strong', 'block_repair', 'hybrid_denoise_inpaint'
+];
 
 /* ── Health check ── */
 async function checkApi() {
@@ -879,6 +981,16 @@ document.querySelectorAll('.sev-btn').forEach(btn => {
   });
 });
 
+/* ── Execution mode help ── */
+const execModeSelect = document.getElementById('exec-mode');
+execModeSelect.addEventListener('change', updateExecutionModeHelp);
+updateExecutionModeHelp();
+
+function updateExecutionModeHelp() {
+  const isSupreme = execModeSelect.value === 'forensic_supreme';
+  document.getElementById('supreme-help').classList.toggle('on', isSupreme);
+}
+
 /* ── Loader ── */
 const LOADER_MSGS = [
   'Chargement de l\'image…', 'Application de la dégradation…', 'Génération du masque…',
@@ -909,15 +1021,20 @@ function stopLoader() {
 document.getElementById('run-btn').addEventListener('click', async () => {
   if (!selectedFile) return;
   const btn = document.getElementById('run-btn');
+  const execMode = document.getElementById('exec-mode').value;
+  const isSupreme = execMode === 'forensic_supreme';
+  let keepDisabled = false;
+
+  clearSupremeTimers();
   btn.disabled = true;
-  startLoader();
-  setWS(`<div class="empty-state"><span class="es-icon">◈</span><div class="es-text">Analyse en cours…</div></div>`);
+  startLoader(isSupreme ? ['Envoi de l\'analyse…', 'Création de la tâche…', 'Préparation Forensic Supreme…'] : null);
+  setWS(`<div class="empty-state"><span class="es-icon">◈</span><div class="es-text">${isSupreme ? 'Création de l’analyse asynchrone…' : 'Analyse en cours…'}</div></div>`);
 
   const fd = new FormData();
   fd.append('image', selectedFile);
   fd.append('corruption_type', selectedCorruption);
   fd.append('severity', selectedSeverity);
-  fd.append('execution_mode', document.getElementById('exec-mode').value);
+  fd.append('execution_mode', execMode);
   fd.append('max_attempts', document.getElementById('max-attempts').value);
   fd.append('seed', '42');
 
@@ -928,13 +1045,19 @@ document.getElementById('run-btn').addEventListener('click', async () => {
       const err = await r.json().catch(() => ({ detail: r.statusText }));
       showError(err.detail || 'Erreur inconnue');
     } else {
-      renderResults(await r.json());
+      const data = await r.json();
+      if (isSupreme && data.analysis_id) {
+        keepDisabled = true;
+        startSupremePolling(data.analysis_id, btn);
+      } else {
+        renderResults(data);
+      }
     }
   } catch (e) {
     stopLoader();
     showError('Impossible de contacter l\'API sur ' + API);
   } finally {
-    btn.disabled = false;
+    if (!keepDisabled) btn.disabled = false;
   }
 });
 
@@ -943,6 +1066,139 @@ function showError(msg) { setWS(`<div class="error-box"><strong>// ERREUR</stron
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function scoreClass(v) { if (v>=80) return 'excellent'; if (v>=60) return 'good'; if (v>=40) return 'medium'; return 'poor'; }
 function tagClass(v)   { if (v>=70) return 'st-hi'; if (v>=40) return 'st-mid'; return 'st-lo'; }
+
+/* ── Forensic Supreme polling ── */
+function clearSupremeTimers() {
+  if (supremePollTimer) clearInterval(supremePollTimer);
+  if (supremeEtaTimer) clearInterval(supremeEtaTimer);
+  supremePollTimer = null;
+  supremeEtaTimer = null;
+  supremeState = null;
+}
+
+function renderSupremeProgress(analysisId) {
+  setWS(`<div class="supreme-progress">
+    <div class="supreme-head">
+      <div class="supreme-title">Forensic Supreme en cours</div>
+      <div class="supreme-id">analysis_id ${esc(analysisId)}</div>
+    </div>
+    <div class="supreme-status" id="supreme-status">Initialisation…</div>
+    <div class="supreme-eta" id="supreme-eta">Estimation du temps restant : calcul en cours…</div>
+    <div class="supreme-track"><div class="supreme-fill"></div></div>
+    <div class="supreme-note">
+      Polling toutes les 3 secondes. Le résultat complet sera affiché dès que l'analyse sera terminée.
+    </div>
+  </div>`);
+}
+
+function startSupremePolling(analysisId, runButton) {
+  stopLoader();
+  renderSupremeProgress(analysisId);
+  supremeState = {
+    analysisId,
+    startedAt: Date.now(),
+    lastStatus: 'pending',
+    totalMs: SUPREME_STRATEGIES.length * 18000
+  };
+
+  const tickEta = () => updateSupremeProgressText(supremeState.lastPayload || {});
+  const poll = async () => {
+    try {
+      const r = await fetch(`${API}/analysis/${encodeURIComponent(analysisId)}/status`);
+      if (!r.ok) throw new Error(r.statusText || 'Statut indisponible');
+      const payload = await r.json();
+      supremeState.lastPayload = payload;
+      supremeState.lastStatus = payload.status || supremeState.lastStatus;
+      updateSupremeProgressText(payload);
+
+      if (payload.status === 'completed') {
+        clearInterval(supremePollTimer);
+        clearInterval(supremeEtaTimer);
+        supremePollTimer = null;
+        supremeEtaTimer = null;
+        await loadSupremeResult(analysisId);
+        runButton.disabled = false;
+      } else if (payload.status === 'failed') {
+        clearSupremeTimers();
+        runButton.disabled = false;
+        showError(payload.error || 'Analyse Forensic Supreme échouée');
+      }
+    } catch (e) {
+      updateSupremeProgressText({ status: 'running', transient_error: e.message });
+    }
+  };
+
+  poll();
+  supremePollTimer = setInterval(poll, 3000);
+  supremeEtaTimer = setInterval(tickEta, 1000);
+}
+
+function updateSupremeProgressText(payload) {
+  if (!supremeState) return;
+  const elapsed = Math.max(0, Date.now() - supremeState.startedAt);
+  const idx = Math.min(
+    SUPREME_STRATEGIES.length - 1,
+    Math.floor((elapsed / supremeState.totalMs) * SUPREME_STRATEGIES.length)
+  );
+  const strategyFromApi =
+    payload.current_strategy || payload.selected_repair_strategy ||
+    payload.strategy || payload.phase || null;
+  const strategy = strategyFromApi || SUPREME_STRATEGIES[idx];
+  const status = payload.status || 'running';
+  const remaining = Math.max(0, supremeState.totalMs - elapsed);
+  const statusText = status === 'pending'
+    ? `En attente — ${strategy}...`
+    : `Stratégie ${idx + 1}/${SUPREME_STRATEGIES.length} — ${strategy}...`;
+  const suffix = payload.transient_error ? ` · reconnexion (${esc(payload.transient_error)})` : '';
+
+  const statusEl = document.getElementById('supreme-status');
+  const etaEl = document.getElementById('supreme-eta');
+  if (statusEl) statusEl.textContent = statusText + suffix;
+  if (etaEl) etaEl.textContent = `Estimation du temps restant : ${formatDuration(remaining)}`;
+}
+
+async function loadSupremeResult(analysisId) {
+  const statusEl = document.getElementById('supreme-status');
+  const etaEl = document.getElementById('supreme-eta');
+  if (statusEl) statusEl.textContent = 'Analyse terminée — chargement du résultat…';
+  if (etaEl) etaEl.textContent = 'Estimation du temps restant : 0s';
+
+  try {
+    const r = await fetch(`${API}/analysis/${encodeURIComponent(analysisId)}/result`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      showError(err.detail || 'Résultat indisponible');
+      return;
+    }
+    renderResults(normalizeSupremeResult(await r.json()));
+  } catch {
+    showError('Résultat Forensic Supreme indisponible pour le moment');
+  }
+}
+
+function normalizeSupremeResult(payload) {
+  const body = payload || {};
+  const wrapped = body.result || body;
+  const request = body.request || wrapped.request || {};
+  return {
+    ...wrapped,
+    status: wrapped.status || body.status || 'completed',
+    score: wrapped.score ?? wrapped.repair_score ?? 0,
+    selected_repair_strategy: wrapped.selected_repair_strategy || '',
+    candidates: wrapped.candidates || wrapped.repair_candidates || [],
+    corruption_type: request.corruption_type || wrapped.corruption_type || selectedCorruption,
+    original_image: wrapped.original_image,
+    corrupted_image: wrapped.corrupted_image,
+    reconstructed_image: wrapped.reconstructed_image,
+  };
+}
+
+function formatDuration(ms) {
+  const total = Math.ceil(ms / 1000);
+  const min = Math.floor(total / 60);
+  const sec = total % 60;
+  return min > 0 ? `${min}m ${String(sec).padStart(2, '0')}s` : `${sec}s`;
+}
 
 /* ── Score ring ── */
 function renderRing(score, cls) {
