@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forensic Recovery — Documentation Technique</title>
+<style>
+:root {
+  --bg:        #f5f0e8;
+  --surface:   #edeae3;
+  --surface2:  #e4e0d8;
+  --border:    #cfc9be;
+  --text:      #1e1c18;
+  --muted:     #6b6358;
+  --accent:    #0d9488;
+  --accent-bg: #e6f4f3;
+  --accent-dk: #0f766e;
+  --success:   #4d7c5f;
+  --error:     #9b4444;
+  --warn:      #7d6b2f;
+  --sans: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono: 'Courier New', Courier, monospace;
+  --r:  12px;
+  --rs:  8px;
+  --rp: 999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+}
+
+/* ─── Header ─── */
+header {
+  height: 56px;
+  padding: 0 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo { display: flex; align-items: center; gap: 0.7rem; margin-right: auto; }
+
+.logo-mark {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-mark svg { display: block; }
+.logo-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.logo-sub  { font-size: 0.62rem; color: var(--muted); }
+
+.back-btn {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--rp);
+  background: var(--bg);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.back-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+
+/* ─── Nav tabs ─── */
+nav {
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  display: flex;
+  overflow-x: auto;
+  background: var(--surface);
+  position: sticky;
+  top: 56px;
+  z-index: 9;
+  gap: 0.15rem;
+}
+
+.nav-btn {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.85rem 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-btn:hover  { color: var(--text); }
+.nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* ─── Main content ─── */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+}
+
+section { display: none; }
+section.active { display: block; }
+
+/* ─── Section header ─── */
+.sec-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  color: var(--text);
+}
+.sec-title span { color: var(--accent); }
+
+.sec-sub {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-bottom: 2.5rem;
+}
+
+/* ─── Generic card ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.25rem;
+  position: relative;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(13,148,136,0.08); }
+
+.card-accent-left::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r) 0 0 var(--r);
+}
+
+.card-accent-top {
+  border-top: 2px solid var(--border);
+}
+.card-accent-top::before {
+  content: '';
+  position: absolute;
+  top: -2px; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: var(--r) var(--r) 0 0;
+}
+
+/* ─── Grid layouts ─── */
+.grid-2    { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.grid-3    { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 1rem; }
+.grid-auto-lg { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 1rem; }
+
+/* ─── Typography ─── */
+.card-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+.card-fn {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-bottom: 0.7rem;
+}
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.card-desc   { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin-bottom: 0.7rem; }
+.card-detail { font-size: 0.78rem; color: var(--muted); line-height: 1.55; }
+
+.card-params {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--accent-dk);
+  background: var(--accent-bg);
+  border: 1px solid rgba(13,148,136,0.2);
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--rs);
+  margin-top: 0.5rem;
+}
+.card-usecase { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
+.card-best    { font-size: 0.72rem; color: var(--accent-dk); font-weight: 500; margin-top: 0.6rem; }
+
+.code-block {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 0.9rem 1rem;
+  line-height: 2;
+  white-space: pre-wrap;
+}
+.code-block .k { color: var(--muted); }
+.code-block .v { color: var(--accent-dk); font-weight: 600; }
+
+/* ─── Module tags ─── */
+.mod-tag {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--rp);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.tag-stable       { background: rgba(77,124,95,.12);  color: var(--success); border: 1px solid var(--success); }
+.tag-optional     { background: rgba(125,107,47,.12);  color: var(--warn);    border: 1px solid var(--warn); }
+.tag-experimental { background: rgba(155,68,68,.12);   color: var(--error);   border: 1px solid var(--error); }
+
+/* ─── Metrics ─── */
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-name  { font-family: var(--mono); font-size: 0.7rem; color: var(--accent-dk); font-weight: 600; width: 120px; flex-shrink: 0; }
+.metric-desc  { font-size: 0.8rem; color: var(--text); flex: 1; }
+.metric-range { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); width: 70px; text-align: right; }
+
+/* ─── Score grades ─── */
+.grade-grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.grade-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1rem;
+  text-align: center;
+}
+.grade-val  { font-family: var(--mono); font-size: 1.5rem; font-weight: 700; }
+.grade-lbl  { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; margin-top: 0.25rem; text-transform: uppercase; }
+.grade-desc { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.5; }
+
+/* ─── Limits ─── */
+.limit-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--r);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+.limit-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--warn);
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+/* ─── API endpoints ─── */
+.endpoint {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.65rem;
+  transition: border-color 0.15s;
+}
+.endpoint:hover { border-color: var(--accent); }
+
+.endpoint-line {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.4rem;
+}
+.method {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--rp);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.m-post   { background: var(--accent-bg);          color: var(--accent-dk); }
+.m-get    { background: rgba(77,124,95,.12);         color: var(--success); }
+.m-delete { background: rgba(155,68,68,.12);         color: var(--error); }
+
+.endpoint-path   { font-family: var(--mono); font-size: 0.8rem; color: var(--text); font-weight: 600; }
+.endpoint-desc   { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; }
+.endpoint-params {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text);
+  background: var(--surface2);
+  border-radius: var(--rs);
+  padding: 0.65rem 0.8rem;
+  line-height: 2;
+  border: 1px solid var(--border);
+}
+
+/* ─── Pipeline diagram ─── */
+.pipeline-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+/* ─── Section group label ─── */
+.group-lbl {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 1.75rem 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.group-lbl::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ─── Mode cards ─── */
+.mode-name { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.mode-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.65; }
+.mode-name.green  { color: var(--success); }
+.mode-name.yellow { color: var(--warn); }
+.mode-name.blue   { color: var(--accent); }
+
+/* ─── Summary stats ─── */
+.stat-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 0.8rem 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.stat-val { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+.stat-lbl { font-size: 0.72rem; color: var(--muted); }
+
+/* ─── Spacer ─── */
+.mt  { margin-top: 1.25rem; }
+.mt2 { margin-top: 2rem; }
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  main   { padding: 1.5rem 1rem; }
+  nav    { padding: 0 1rem; }
+  header { padding: 0 1rem; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .grade-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <circle cx="8" cy="8" r="2.2" fill="#fff"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">Forensic Recovery</div>
+      <div class="logo-sub">Documentation Technique</div>
+    </div>
+  </div>
+  <a href="forensic_ui.html" class="back-btn">← Interface principale</a>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="show('pipeline',this)">Pipeline</button>
+  <button class="nav-btn" onclick="show('corruptions',this)">Dégradations</button>
+  <button class="nav-btn" onclick="show('reconstruction',this)">Reconstruction</button>
+  <button class="nav-btn" onclick="show('scoring',this)">Scoring</button>
+  <button class="nav-btn" onclick="show('modes',this)">Modes</button>
+  <button class="nav-btn" onclick="show('limits',this)">Limites</button>
+  <button class="nav-btn" onclick="show('forensic',this)">Modules Forensics</button>
+  <button class="nav-btn" onclick="show('api',this)">API Reference</button>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════════════ PIPELINE -->
+<section id="pipeline" class="active">
+  <div class="sec-title">Pipeline <span>général</span></div>
+  <div class="sec-sub">// ARCHITECTURE DU SYSTÈME DE BOUT EN BOUT</div>
+
+  <div class="stat-row">
+    <div class="stat-card"><span class="stat-val">15</span><span class="stat-lbl">types de corruption</span></div>
+    <div class="stat-card"><span class="stat-val">14</span><span class="stat-lbl">stratégies testées</span></div>
+    <div class="stat-card"><span class="stat-val">398</span><span class="stat-lbl">tests unitaires</span></div>
+    <div class="stat-card"><span class="stat-val">3</span><span class="stat-lbl">modes d'exécution</span></div>
+  </div>
+
+  <div class="pipeline-wrap">
+    <svg width="100%" viewBox="0 0 1060 300" role="img">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#0d9488" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- Step 1: Upload -->
+      <rect x="20" y="90" width="110" height="68" rx="8" fill="#edeae3" stroke="#0d9488" stroke-width="1.2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#0d9488" x="75" y="112" text-anchor="middle" letter-spacing="1" font-weight="700">UPLOAD</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="75" y="130" text-anchor="middle">Image JPEG / PNG</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="75" y="146" text-anchor="middle">Validation format</text>
+      <line x1="130" y1="124" x2="158" y2="124" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 2: Corruption -->
+      <rect x="160" y="90" width="115" height="68" rx="8" fill="#edeae3" stroke="#9b4444" stroke-width="1.2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#9b4444" x="217" y="112" text-anchor="middle" letter-spacing="1" font-weight="700">CORRUPTION</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="217" y="130" text-anchor="middle">15 types dispo</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="217" y="146" text-anchor="middle">Masque exact généré</text>
+      <line x1="275" y1="124" x2="303" y2="124" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 3: Detection -->
+      <rect x="305" y="90" width="115" height="68" rx="8" fill="#edeae3" stroke="#7d6b2f" stroke-width="1.2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#7d6b2f" x="362" y="112" text-anchor="middle" letter-spacing="1" font-weight="700">DÉTECTION</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="362" y="130" text-anchor="middle">Masque auto / exact</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="362" y="146" text-anchor="middle">IoU / Précision</text>
+      <line x1="420" y1="124" x2="448" y2="124" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 4: Reconstruction (larger) -->
+      <rect x="450" y="68" width="210" height="112" rx="8" fill="#e6f4f3" stroke="#0d9488" stroke-width="2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#0f766e" x="555" y="90" text-anchor="middle" letter-spacing="1" font-weight="700">RECONSTRUCTION</text>
+      <rect x="460" y="98"  width="88" height="20" rx="5" fill="#edeae3" stroke="#0d9488" stroke-width=".8"/>
+      <text font-family="Courier New,monospace" font-size="7" fill="#0d9488" x="504" y="112" text-anchor="middle">Inpainting ×3</text>
+      <rect x="556" y="98"  width="92" height="20" rx="5" fill="#edeae3" stroke="#0d9488" stroke-width=".8"/>
+      <text font-family="Courier New,monospace" font-size="7" fill="#0d9488" x="602" y="112" text-anchor="middle">PatchMatch ×3</text>
+      <rect x="460" y="124" width="88" height="20" rx="5" fill="#edeae3" stroke="#0d9488" stroke-width=".8"/>
+      <text font-family="Courier New,monospace" font-size="7" fill="#0d9488" x="504" y="138" text-anchor="middle">Denoise ×3</text>
+      <rect x="556" y="124" width="92" height="20" rx="5" fill="#edeae3" stroke="#0d9488" stroke-width=".8"/>
+      <text font-family="Courier New,monospace" font-size="7" fill="#0d9488" x="602" y="138" text-anchor="middle">Deblur + Hybrid</text>
+      <text font-family="Arial,sans-serif" font-size="8" fill="#4d7c5f" x="555" y="168" text-anchor="middle">↳ Meilleur candidat sélectionné</text>
+      <line x1="660" y1="124" x2="688" y2="124" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 5: Scoring -->
+      <rect x="690" y="90" width="115" height="68" rx="8" fill="#edeae3" stroke="#4d7c5f" stroke-width="1.2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#4d7c5f" x="747" y="112" text-anchor="middle" letter-spacing="1" font-weight="700">SCORING</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="747" y="130" text-anchor="middle">PSNR / SSIM</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="747" y="146" text-anchor="middle">Score 0–100</text>
+      <line x1="805" y1="124" x2="833" y2="124" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 6: Report -->
+      <rect x="835" y="90" width="115" height="68" rx="8" fill="#edeae3" stroke="#0d9488" stroke-width="1.2"/>
+      <text font-family="Courier New,monospace" font-size="9" fill="#0d9488" x="892" y="112" text-anchor="middle" letter-spacing="1" font-weight="700">RAPPORT</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="892" y="130" text-anchor="middle">JSON + PDF + HTML</text>
+      <text font-family="Arial,sans-serif" font-size="9" fill="#6b6358" x="892" y="146" text-anchor="middle">Chain of custody</text>
+
+      <!-- Step numbers -->
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="75"  y="200" text-anchor="middle">01</text>
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="217" y="200" text-anchor="middle">02</text>
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="362" y="200" text-anchor="middle">03</text>
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="555" y="200" text-anchor="middle">04</text>
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="747" y="200" text-anchor="middle">05</text>
+      <text font-family="Courier New,monospace" font-size="8" fill="#cfc9be" x="892" y="200" text-anchor="middle">06</text>
+      <line x1="20" y1="190" x2="1040" y2="190" stroke="#cfc9be" stroke-width=".8"/>
+
+      <!-- Mode annotations -->
+      <text font-family="Courier New,monospace" font-size="7" fill="#4d7c5f" x="217" y="235" text-anchor="middle" font-weight="700">Mode assisté</text>
+      <text font-family="Arial,sans-serif" font-size="8" fill="#6b6358" x="217" y="250" text-anchor="middle">Masque exact</text>
+      <line x1="217" y1="162" x2="217" y2="228" stroke="#4d7c5f" stroke-width=".8" stroke-dasharray="3 3"/>
+      <text font-family="Courier New,monospace" font-size="7" fill="#7d6b2f" x="362" y="235" text-anchor="middle" font-weight="700">Mode aveugle</text>
+      <text font-family="Arial,sans-serif" font-size="8" fill="#6b6358" x="362" y="250" text-anchor="middle">Détection auto</text>
+      <line x1="362" y1="162" x2="362" y2="228" stroke="#7d6b2f" stroke-width=".8" stroke-dasharray="3 3"/>
+    </svg>
+  </div>
+
+  <div class="grid-3">
+    <div class="card card-accent-left">
+      <div class="card-tag">Entrée</div>
+      <div class="card-title">Image source</div>
+      <div class="card-desc">JPEG ou PNG uploadée via l'interface web ou l'API REST. Validation des magic bytes, format et taille avant tout traitement.</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Traitement</div>
+      <div class="card-title">Pipeline adaptatif</div>
+      <div class="card-desc">Corruption → détection du masque → 14 stratégies testées → sélection automatique du meilleur candidat par score composé.</div>
+    </div>
+    <div class="card card-accent-left" style="--accent:#4d7c5f">
+      <div class="card-tag" style="color:var(--success)">Sortie</div>
+      <div class="card-title">Résultats complets</div>
+      <div class="card-desc">3 images (original / corrompu / reconstruit), score 0–100, stratégie, tableau des candidats, rapport JSON + PDF + HTML auto-contenu.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ CORRUPTIONS -->
+<section id="corruptions">
+  <div class="sec-title">Dégradations <span>disponibles</span></div>
+  <div class="sec-sub">// 15 TYPES DE CORRUPTION RÉALISTES IMPLÉMENTÉS</div>
+
+  <div class="grid-auto">
+    <div class="card card-accent-left">
+      <div class="card-tag">Scratch Lines</div>
+      <div class="card-fn">apply_scratch_lines()</div>
+      <div class="card-desc">Traits fins ou épais tracés en diagonale simulant des égratignures physiques sur un support photographique.</div>
+      <div class="card-params">count, thickness, angle_range, color, seed</div>
+      <div class="card-usecase">→ Négatifs rayés, supports optiques endommagés</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Large Deleted Square</div>
+      <div class="card-fn">apply_large_deleted_square()</div>
+      <div class="card-desc">Suppression d'un grand carré centré couvrant une fraction significative de l'image. Simule une perte de secteur disque.</div>
+      <div class="card-params">size_ratio, fill_mode, seed</div>
+      <div class="card-usecase">→ Perte de cluster, secteur défaillant</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Multiple Bars</div>
+      <div class="card-fn">apply_multiple_bars()</div>
+      <div class="card-desc">N barres horizontales ou verticales réparties aléatoirement. Simule des erreurs de transmission ou de lecture linéaire.</div>
+      <div class="card-params">count, orientation, thickness, fill_mode, seed</div>
+      <div class="card-usecase">→ Erreurs de transmission, artefacts vidéo</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Random Holes</div>
+      <div class="card-fn">apply_random_holes()</div>
+      <div class="card-desc">N zones rectangulaires de tailles variables dispersées aléatoirement dans l'image.</div>
+      <div class="card-params">count, min_size, max_size, fill_mode, seed</div>
+      <div class="card-usecase">→ Corruption aléatoire de clusters, bad blocks</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Local Noise</div>
+      <div class="card-fn">apply_local_noise()</div>
+      <div class="card-desc">Bruit gaussien ou sel-et-poivre appliqué sur une zone définie. Simule une dégradation capteur ou une interférence EM.</div>
+      <div class="card-params">x, y, width, height, sigma, noise_type, seed</div>
+      <div class="card-usecase">→ Dégradation capteur, interférence EM localisée</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Zone Deletion</div>
+      <div class="card-fn">apply_zone_deletion()</div>
+      <div class="card-desc">Remplacement d'une zone rectangulaire par du noir, blanc, gris ou bruit. Masque précis retourné.</div>
+      <div class="card-params">x, y, width, height, fill_mode, seed</div>
+      <div class="card-usecase">→ Overwrite de zone mémoire, corruption ciblée</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Rectangle Mask</div>
+      <div class="card-fn">apply_rectangle_mask()</div>
+      <div class="card-desc">Remplacement d'une zone par une valeur fixe (0=noir, 255=blanc). Corruption déterministe simple.</div>
+      <div class="card-params">x, y, width, height, fill_value</div>
+      <div class="card-usecase">→ Démo, tests, référence</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Bar Corruption</div>
+      <div class="card-fn">apply_bar_corruption()</div>
+      <div class="card-desc">Une ou plusieurs barres avec espacement contrôlé. Plus précis que multiple_bars pour les cas documentés.</div>
+      <div class="card-params">orientation, thickness, position, count, gap</div>
+      <div class="card-usecase">→ Ligne de synchronisation perdue, entrelacement</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Block Dropout</div>
+      <div class="card-fn">apply_block_dropout()</div>
+      <div class="card-desc">Suppression aléatoire de blocs NxN selon un ratio de perte. Simule une compression avec perte de blocs JPEG.</div>
+      <div class="card-params">block_size, drop_ratio, fill_mode, seed</div>
+      <div class="card-usecase">→ Perte de paquets réseau, JPEG partiel</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">JPEG Block Artifacts</div>
+      <div class="card-fn">apply_jpeg_block_artifacts()</div>
+      <div class="card-desc">Simulation d'artefacts de pixellisation par downscale/upscale sur une zone. Effet mosaïque de mauvaise compression.</div>
+      <div class="card-params">x, y, width, height, block_size</div>
+      <div class="card-usecase">→ Sur-compression JPEG, recompression</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Local Blur</div>
+      <div class="card-fn">apply_local_blur()</div>
+      <div class="card-desc">Flou gaussien appliqué sur une zone rectangulaire. Simule une mise au point incorrecte ou un mouvement sur une portion.</div>
+      <div class="card-params">x, y, width, height, kernel_size</div>
+      <div class="card-usecase">→ Flou de bougé, défaut optique localisé</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Gaussian Noise</div>
+      <div class="card-fn">apply_noise()</div>
+      <div class="card-desc">Ajout de bruit gaussien sur une zone définie avec intensité sigma paramétrable.</div>
+      <div class="card-params">x, y, width, height, sigma, seed</div>
+      <div class="card-usecase">→ Dégradation de capteur, numérisation basse qualité</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Shift Region</div>
+      <div class="card-fn">apply_shift_region()</div>
+      <div class="card-desc">Déplace une zone de l'image par translation. L'original laisse une trace noire/blanche selon le fill_mode.</div>
+      <div class="card-params">x, y, width, height, shift_x, shift_y, fill_mode</div>
+      <div class="card-usecase">→ Corruption de métadonnées d'offset, réassemblage incorrect</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Combined</div>
+      <div class="card-fn">apply_combined_corruption()</div>
+      <div class="card-desc">Zone noire + halo de bruit autour. Simulation d'une corruption avec effets de bord (write failure + charge résiduelle).</div>
+      <div class="card-params">x, y, width, height, fill_value, sigma, seed</div>
+      <div class="card-usecase">→ Défaillance flash NAND, write failure</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Mixed</div>
+      <div class="card-fn">apply_mixed_corruption()</div>
+      <div class="card-desc">Combinaison de plusieurs dégradations selon une liste d'opérations. Masque cumulé retourné. Le plus réaliste.</div>
+      <div class="card-params">seed, operations: [{type, ...params}]</div>
+      <div class="card-usecase">→ Scénario forensique réel multi-dégradation</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ RECONSTRUCTION -->
+<section id="reconstruction">
+  <div class="sec-title">Algorithmes de <span>reconstruction</span></div>
+  <div class="sec-sub">// 14 STRATÉGIES TESTÉES AUTOMATIQUEMENT — MEILLEURE SÉLECTIONNÉE PAR SCORE</div>
+
+  <div class="grid-auto-lg">
+    <div class="card card-accent-left">
+      <div class="card-tag">Inpainting r3 / r5 / r7</div>
+      <div class="card-desc">Reconstruction OpenCV par Navier-Stokes ou Telea selon le rayon de diffusion (3, 5 ou 7 px). Propage les textures environnantes dans la zone masquée.</div>
+      <div class="card-detail">L'algorithme diffuse la couleur depuis les bords du masque vers l'intérieur. Telea : estimation rapide basée sur la distance. Le rayon contrôle la zone d'influence.</div>
+      <div class="card-best">→ Optimal : zone_deletion, bar, rectangle_mask, scratch_lines</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">PatchMatch p7 / p9 / p11</div>
+      <div class="card-desc">Algorithme exemplar-based inspiré Barnes 2009. Remplissage progressif par patches similaires (onion-peel). Sans GPU, meilleur sur grandes zones.</div>
+      <div class="card-detail">Remplissage de la zone masquée patch par patch, en cherchant la meilleure correspondance dans la zone non-masquée. Iterations configurables.</div>
+      <div class="card-best">→ Optimal : grandes zones, textures répétitives</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Denoise Médian</div>
+      <div class="card-desc">Filtre médian sur l'image entière. Élimine le bruit sel-et-poivre en remplaçant chaque pixel par la médiane de son voisinage.</div>
+      <div class="card-detail">Préserve mieux les contours que le filtre gaussien. Insensible aux valeurs extrêmes. Noyau 5×5 par défaut.</div>
+      <div class="card-best">→ Optimal : noise, local_noise, salt_pepper</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Denoise Gaussien</div>
+      <div class="card-desc">Convolution gaussienne 2D. Lisse le bruit de manière isotrope en pondérant les pixels voisins selon une distribution gaussienne.</div>
+      <div class="card-detail">Rapide et simple. Tend à flouter légèrement les contours. Efficace sur le bruit gaussien additif.</div>
+      <div class="card-best">→ Optimal : noise gaussien, combined</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Denoise Bilatéral</div>
+      <div class="card-desc">Filtrage bilatéral préservant les contours : lisse les zones homogènes tout en respectant les discontinuités de couleur.</div>
+      <div class="card-detail">Combine filtre spatial + filtre de range (intensité). Plus lent que gaussian/median mais visuellement supérieur sur images naturelles.</div>
+      <div class="card-best">→ Optimal : bruit + préservation des bords</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Deblur Light / Strong</div>
+      <div class="card-desc">Défloutage par déconvolution. "Light" : 1 passe. "Strong" : 2 passes pour flous intenses. Appliqué sur zones floues ou artefacts de compression.</div>
+      <div class="card-detail">Implémenté par unsharp mask ou Laplacian sharpening. Peut amplifier le bruit si appliqué en excès.</div>
+      <div class="card-best">→ Optimal : local_blur, jpeg_block_artifacts</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Block Repair</div>
+      <div class="card-desc">Réparation des artefacts de blocs JPEG : détecte et lisse les frontières entre blocs 8×8 pour éliminer l'effet mosaïque.</div>
+      <div class="card-detail">Applique un filtre de lissage adaptatif aux jointures de blocs. Moins destructif que le débruitage global.</div>
+      <div class="card-best">→ Optimal : jpeg_block_artifacts, block_dropout</div>
+    </div>
+    <div class="card card-accent-left">
+      <div class="card-tag">Hybrid Denoise + Inpaint</div>
+      <div class="card-desc">Pipeline composé : débruitage médian d'abord, puis inpainting. Combine réduction de bruit et reconstruction de zone manquante.</div>
+      <div class="card-detail">La passe de débruitage rend les bords du masque plus propres, ce qui améliore la diffusion inpainting.</div>
+      <div class="card-best">→ Optimal : mixed, combined, block_dropout</div>
+    </div>
+  </div>
+
+  <div class="group-lbl">Baseline de référence</div>
+  <div class="card card-accent-left" style="border-left-color:var(--muted)">
+    <div class="card-tag" style="color:var(--muted)">Conservative</div>
+    <div class="card-desc">Retourne l'image corrompue sans modification. Sert de baseline pour vérifier que toute reconstruction améliore bien l'image par rapport à la corruption brute.</div>
+    <div class="card-detail">Toujours inclus dans les candidats. Si le conservative gagne, cela indique que les reconstructions ont dégradé l'image — score de l'image corrompue non reconstruite.</div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════ SCORING -->
+<section id="scoring">
+  <div class="sec-title">Scoring <span>et métriques</span></div>
+  <div class="sec-sub">// ÉVALUATION QUANTITATIVE DE LA QUALITÉ DE RECONSTRUCTION</div>
+
+  <div class="grid-2">
+    <div class="card card-accent-top">
+      <div class="card-tag" style="color:var(--success)">Mode supervisé — original disponible</div>
+      <p class="card-desc">Score le plus fiable. L'image originale est connue et sert de référence exacte.</p>
+      <div class="metric-row">
+        <div class="metric-name">PSNR</div>
+        <div class="metric-desc">Peak Signal-to-Noise Ratio. Mesure l'écart moyen pixel par pixel en dB. Plus élevé = meilleure reconstruction.</div>
+        <div class="metric-range">0–100 dB</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">SSIM</div>
+        <div class="metric-desc">Structural Similarity. Mesure la similarité perceptuelle (luminance, contraste, structure). Proche de 1.0 = quasi-identique.</div>
+        <div class="metric-range">0–1</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Gain PSNR</div>
+        <div class="metric-desc">PSNR reconstruit − PSNR corrompu. Mesure l'amélioration nette apportée.</div>
+        <div class="metric-range">ΔdB</div>
+      </div>
+      <div class="metric-row" style="border:none">
+        <div class="metric-name">Score global</div>
+        <div class="metric-desc">0.60×SSIM + 0.20×PSNR/100 + 0.30×gain_SSIM + 0.20×gain_PSNR. Normalisé 0–100.</div>
+        <div class="metric-range">0–100</div>
+      </div>
+    </div>
+
+    <div class="card card-accent-top" style="border-top-color:var(--warn)">
+      <div class="card-tag" style="color:var(--warn)">Mode aveugle — sans original</div>
+      <p class="card-desc">Score heuristique. Utilise des proxies de qualité perceptuelle quand l'original n'est pas disponible.</p>
+      <div class="metric-row">
+        <div class="metric-name">Netteté</div>
+        <div class="metric-desc">Variance du Laplacien. Une image bien reconstruite a des contours nets (variance élevée).</div>
+        <div class="metric-range">35%</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Bruit résiduel</div>
+        <div class="metric-desc">Écart vs filtre gaussien léger. Un bruit élevé pénalise le score.</div>
+        <div class="metric-range">25%</div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-name">Continuité</div>
+        <div class="metric-desc">Gradient Sobel moyen. Récompense les bords présents mais pas excessifs.</div>
+        <div class="metric-range">20%</div>
+      </div>
+      <div class="metric-row" style="border:none">
+        <div class="metric-name">Cohérence</div>
+        <div class="metric-desc">Delta moyen corrompu → reconstruit. Pénalise la sur-correction.</div>
+        <div class="metric-range">10%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt2">
+    <div class="card-tag">Interprétation du score global</div>
+    <div class="grade-grid">
+      <div class="grade-card">
+        <div class="grade-val" style="color:var(--success)">≥ 80</div>
+        <div class="grade-lbl" style="color:var(--success)">Excellent</div>
+        <div class="grade-desc">Reconstruction quasi-parfaite. Zones masquées visuellement indétectables.</div>
+      </div>
+      <div class="grade-card">
+        <div class="grade-val" style="color:var(--accent)">60–79</div>
+        <div class="grade-lbl" style="color:var(--accent)">Bon</div>
+        <div class="grade-desc">Reconstruction de qualité. Légères traces possibles à l'inspection rapprochée.</div>
+      </div>
+      <div class="grade-card">
+        <div class="grade-val" style="color:var(--warn)">40–59</div>
+        <div class="grade-lbl" style="color:var(--warn)">Moyen</div>
+        <div class="grade-desc">Reconstruction partielle. Zone masquée visible mais cohérente avec le contexte.</div>
+      </div>
+      <div class="grade-card">
+        <div class="grade-val" style="color:var(--error)">&lt; 40</div>
+        <div class="grade-lbl" style="color:var(--error)">Faible</div>
+        <div class="grade-desc">Zone non récupérable. Corruption trop étendue ou complexe pour les algorithmes disponibles.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ MODES -->
+<section id="modes">
+  <div class="sec-title">Modes <span>d'exécution</span></div>
+  <div class="sec-sub">// TROIS NIVEAUX D'ASSISTANCE DISPONIBLES</div>
+
+  <div class="grid-3">
+    <div class="card card-accent-top" style="border-top-color:var(--success)">
+      <div class="mode-name green">Assisté</div>
+      <div class="mode-desc">Le masque exact (généré lors de la corruption) est utilisé directement pour la reconstruction. Aucune détection nécessaire. IoU = 1.0. Donne les meilleurs résultats.<br><br><strong style="color:var(--text)">Usage :</strong> évaluation des algorithmes, démonstration, soutenance.</div>
+    </div>
+    <div class="card card-accent-top" style="border-top-color:var(--warn)">
+      <div class="mode-name yellow">Aveugle basique</div>
+      <div class="mode-desc">Le masque est détecté automatiquement par seuillage de luminosité (zones anormalement sombres). Rapide mais imprécis sur les images naturellement sombres.<br><br><strong style="color:var(--text)">Usage :</strong> cas forensiques simples (fond clair, zone noire évidente).</div>
+    </div>
+    <div class="card card-accent-top" style="border-top-color:var(--accent)">
+      <div class="mode-name blue">Aveugle avancé</div>
+      <div class="mode-desc">Fusion de 3 détecteurs : zones sombres + faible variance + ruptures de gradient. Classification automatique du type de corruption. Plus précis sur images complexes.<br><br><strong style="color:var(--text)">Usage :</strong> cas forensiques réels sans connaissance de la corruption.</div>
+    </div>
+  </div>
+
+  <div class="card mt2">
+    <div class="card-tag">Paramètres API — POST /pipeline/corrupt-and-repair</div>
+    <div class="code-block"><span class="k">image</span>           : <span class="v">UploadFile</span>  (JPEG/PNG, max 20 MB)
+<span class="k">corruption_type</span> : <span class="v">scratch_lines | zone_deletion | multiple_bars | random_holes | mixed | ...</span>
+<span class="k">severity</span>        : <span class="v">light | medium | heavy</span>
+<span class="k">execution_mode</span>  : <span class="v">assisted | blind_basic | blind_advanced</span>
+<span class="k">max_attempts</span>    : <span class="v">int (2–11, default 8)</span>
+<span class="k">seed</span>            : <span class="v">int | null</span></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════ LIMITES -->
+<section id="limits">
+  <div class="sec-title">Limites <span>du système</span></div>
+  <div class="sec-sub">// CONTRAINTES CONNUES ET PÉRIMÈTRE D'APPLICATION</div>
+
+  <div class="limit-item">
+    <span class="limit-title">Détection aveugle sur images naturellement sombres</span>
+    La détection automatique par seuillage de luminosité génère des faux positifs sur les images sombres (couchers de soleil, scènes nocturnes). Le mode aveugle avancé améliore ce point sans l'éliminer. Recommandation : utiliser le mode assisté pour les évaluations précises.
+  </div>
+  <div class="limit-item">
+    <span class="limit-title">Inpainting sur grandes zones (&gt;15 % de l'image)</span>
+    L'inpainting OpenCV (Navier-Stokes / Telea) est efficace sur les petites zones masquées. Au-delà de 15 % de surface, la diffusion produit des artefacts de flou ou des incohérences de texture. PatchMatch améliore ce cas mais reste imparfait.
+  </div>
+  <div class="limit-item">
+    <span class="limit-title">Scoring aveugle = estimation heuristique</span>
+    Sans image originale, les métriques (netteté, bruit, gradient) sont des proxies de qualité et non des mesures objectives. Le classement des candidats peut différer du classement supervisé. Interprétation prudente recommandée.
+  </div>
+  <div class="limit-item">
+    <span class="limit-title">Reconstructions complexes (shift_region, block_dropout)</span>
+    Les corruptions impliquant un déplacement de région ou la suppression de blocs sur des textures complexes (tissu, mosaïque) peuvent donner des reconstructions sous-optimales car le contenu originel n'est pas inférable depuis les bords.
+  </div>
+  <div class="limit-item">
+    <span class="limit-title">Performance et scalabilité</span>
+    Le pipeline complet (14 stratégies) prend 2–5 secondes sur une image 1080p sur un processeur récent. Sur images haute résolution (&gt;4K) ou sans accélération matérielle, le temps peut dépasser 30 secondes. Pas de traitement par lot (batch) en l'état actuel.
+  </div>
+  <div class="limit-item">
+    <span class="limit-title">Pas de deep learning / modèle neuronal en production</span>
+    Toutes les reconstructions utilisent des algorithmes classiques (OpenCV, filtres, convolutions). LaMa (deep inpainting) est présent en module expérimental mais marqué "NON PROBANT" — nécessite GPU et validation humaine. Ne pas utiliser en contexte forensique légal.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ MODULES FORENSICS -->
+<section id="forensic">
+  <div class="sec-title">Modules <span>forensics avancés</span></div>
+  <div class="sec-sub">// 13 MODULES SPÉCIALISÉS — K7 À K19</div>
+
+  <div class="grid-auto">
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K7 — Stable</span>
+      <div class="card-title">Carving JPEG</div>
+      <div class="card-fn">app/modules/carving/extractor.py</div>
+      <div class="card-desc">Extraction de fichiers JPEG depuis un dump binaire brut. Détection des marqueurs SOI/EOI, scanner d'offsets, assemblage de fragments.</div>
+      <div class="card-params">extract_jpegs_from_dump(path) → [{index, start_offset, size, path}]</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K8 — Stable</span>
+      <div class="card-title">PatchMatch Inpainting</div>
+      <div class="card-fn">app/modules/reconstruction/patchmatch.py</div>
+      <div class="card-desc">Algorithme exemplar-based inspiré Barnes 2009. Remplissage progressif par patches similaires (onion-peel). Meilleur que l'inpainting OpenCV sur les grandes zones. Sans GPU.</div>
+      <div class="card-params">patchmatch_inpaint(image, mask, patch_size=7, iterations=5)</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-experimental">K9 — Expérimental</span>
+      <div class="card-title">LaMa Deep Inpainting</div>
+      <div class="card-fn">app/modules/ai/lama_adapter.py</div>
+      <div class="card-desc">Adaptateur LaMa (Large Mask inpainting). Active si LAMA_ENABLED=true + torch + modèle présent. Résultat marqué <strong>GÉNÉRATIF / NON PROBANT</strong>. Jamais en prod sans validation humaine.</div>
+      <div class="card-params">run_lama_inpainting(image, mask) → {forensic_mode: "generative"}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-optional">K10 — Optionnel</span>
+      <div class="card-title">Chargement RAW</div>
+      <div class="card-fn">app/modules/raw/raw_loader.py</div>
+      <div class="card-desc">Chargement DNG, CR2, NEF, ARW via rawpy. Conversion en PNG RGB pour le pipeline. Extraction métadonnées (ISO, exposition, balance blancs). Module 100 % optionnel.</div>
+      <div class="card-params">load_raw_as_rgb(path) → {image, width, height, metadata}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K11 — Stable</span>
+      <div class="card-title">OCR sur zones reconstruites</div>
+      <div class="card-fn">app/modules/ocr/text_detector.py</div>
+      <div class="card-desc">Extraction de texte avant/après reconstruction. Tesseract si disponible, EasyOCR sinon. Calcule un gain OCR (text_gain). Ne crash jamais si dépendances absentes.</div>
+      <div class="card-params">compare_ocr_before_after(before, after) → {text_gain, words_before, words_after}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K12 — Stable</span>
+      <div class="card-title">Analyse EXIF Forensique</div>
+      <div class="card-fn">app/modules/metadata/exif_analyzer.py</div>
+      <div class="card-desc">Extraction complète des métadonnées EXIF. Détection de logiciels de retouche (Photoshop, GIMP, Stable Diffusion), incohérences de dates, GPS, orientation suspecte. Score de suspicion 0–1.</div>
+      <div class="card-params">analyze_exif_consistency(path) → {suspicious, flags, score}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K13 — Stable</span>
+      <div class="card-title">Stéganographie LSB</div>
+      <div class="card-fn">app/modules/steganalysis/lsb_analyzer.py</div>
+      <div class="card-desc">Analyse la distribution des bits de poids faible (LSB) par canal RGB. Entropie de Shannon, ratio 0/1. Score d'anomalie 0–1. Niveau de suspicion : faible / moyenne / forte.</div>
+      <div class="card-params">detect_lsb_anomaly(path) → {anomaly_score, suspicious, level}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K14 — Stable</span>
+      <div class="card-title">Hash Perceptuel</div>
+      <div class="card-fn">app/modules/similarity/perceptual_hash.py</div>
+      <div class="card-desc">dHash (difference hash) et pHash (DCT perceptuel) pour comparer des images même après compression, recadrage ou modification légère. Distance de Hamming. Sans dépendance externe.</div>
+      <div class="card-params">compare_images_perceptual(a, b) → {distance, similarity, label}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K15 — Stable</span>
+      <div class="card-title">Clustering de Fragments</div>
+      <div class="card-fn">app/modules/fragments/fragment_clustering.py</div>
+      <div class="card-desc">Regroupe les fragments visuels par DBSCAN sur 107 features (histogramme couleur + stats + entropie + variance). Fallback implémentation maison si sklearn absent.</div>
+      <div class="card-params">cluster_fragments_dbscan(paths) → {clusters, noise, coherence_score}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K16 — Stable</span>
+      <div class="card-title">Timeline Forensique</div>
+      <div class="card-fn">app/modules/timeline/timeline_builder.py</div>
+      <div class="card-desc">Collecte les événements d'une analyse avec timestamp ISO et elapsed_s. Reconstruit rétrospectivement depuis un rapport JSON. Génère une section HTML pour les rapports.</div>
+      <div class="card-params">ForensicTimeline.record(event, details)<br>build_timeline_from_report(report) → {timeline, n_events, total_s}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K17 — Stable</span>
+      <div class="card-title">Détection Copy-Move</div>
+      <div class="card-fn">app/modules/tampering/copy_move_detector.py</div>
+      <div class="card-desc">Détecte les zones copiées-collées par feature matching ORB + BFMatcher Hamming. Génère un masque des zones suspectes et un score de confiance. Fonctionne sans GPU ni SIFT payant.</div>
+      <div class="card-params">detect_copy_move(path, min_matches=10) → {suspicious, confidence, regions}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K18 — Stable</span>
+      <div class="card-title">Bruit Résiduel / PRNU</div>
+      <div class="card-fn">app/modules/noise/residual_noise.py</div>
+      <div class="card-desc">Extraction du bruit capteur par filtre bilatéral. Analyse de cohérence par blocs (détection zones retouchées à &gt;2σ). Heatmap JET. Corrélation PRNU pour identifier même appareil.</div>
+      <div class="card-params">compute_noise_consistency(path) → {consistency, regions, heatmap}<br>compare_prnu(a, b) → {correlation, same_device}</div>
+    </div>
+    <div class="card card-accent-left">
+      <span class="mod-tag tag-stable">K19 — Stable</span>
+      <div class="card-title">Rapport Forensique Légal</div>
+      <div class="card-fn">app/modules/reporting/legal_report.py</div>
+      <div class="card-desc">Enrichit tout rapport avec : chain of custody (SHA-256 à chaque étape), table des méthodes, disclaimer juridique, note légale prudente, certifications. forensic_mode : forensic_safe ou generative.</div>
+      <div class="card-params">generate_legal_report(report) → JSON enrichi<br>build_chain_of_custody(orig, corr, recon, id) → [{step, sha256}]</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════ API REFERENCE -->
+<section id="api">
+  <div class="sec-title">API <span>Reference</span></div>
+  <div class="sec-sub">// ENDPOINTS REST — BASE URL : HTTP://LOCALHOST:8000</div>
+
+  <div class="group-lbl">Pipeline principal</div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-post">POST</span>
+      <span class="endpoint-path">/pipeline/corrupt-and-repair</span>
+    </div>
+    <div class="endpoint-desc">Pipeline complet : upload → corruption → reconstruction → score → rapport</div>
+    <div class="endpoint-params">image: UploadFile (JPEG/PNG, max 20MB)
+corruption_type: scratch_lines | zone_deletion | multiple_bars | random_holes | local_noise | ...
+severity: light | medium | heavy
+execution_mode: assisted | blind_basic | blind_advanced
+max_attempts: int (1–20, default 8)
+seed: int | null</div>
+  </div>
+
+  <div class="group-lbl">Reconstruction avec masque</div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-post">POST</span>
+      <span class="endpoint-path">/reconstruction/repair-with-mask</span>
+    </div>
+    <div class="endpoint-desc">Reconstruction avec masque dessiné manuellement (éditeur de masque)</div>
+    <div class="endpoint-params">image: UploadFile (JPEG/PNG)
+mask: UploadFile (PNG — blanc = zone à reconstruire, noir = reste)
+max_attempts: int (1–11)</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-post">POST</span>
+      <span class="endpoint-path">/reconstruction/compare-masks</span>
+    </div>
+    <div class="endpoint-desc">Compare masque utilisateur vs masque détecté automatiquement (IoU, précision, rappel)</div>
+    <div class="endpoint-params">image, user_mask: UploadFile
+detection_mode: basic | advanced
+max_attempts: int</div>
+  </div>
+
+  <div class="group-lbl">Rapports</div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/reports/html/{report_id}</span>
+    </div>
+    <div class="endpoint-desc">Rapport HTML auto-contenu (images en base64) — s'ouvre dans le navigateur</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/reports/pdf/{report_id}</span>
+    </div>
+    <div class="endpoint-desc">Rapport PDF téléchargeable avec chain of custody</div>
+  </div>
+
+  <div class="group-lbl">Analyses persistantes (async)</div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-post">POST</span>
+      <span class="endpoint-path">/analysis/start</span>
+    </div>
+    <div class="endpoint-desc">Lance une analyse en arrière-plan, retourne un analysis_id immédiatement</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/analysis/{id}/status</span>
+    </div>
+    <div class="endpoint-desc">Statut : pending | running | completed | failed</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/analysis/{id}/result</span>
+    </div>
+    <div class="endpoint-desc">Résultat complet si completed, 202 si en cours</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/analysis/{id}/download</span>
+    </div>
+    <div class="endpoint-desc">Téléchargement PDF de l'analyse</div>
+  </div>
+
+  <div class="group-lbl">Fichiers, audit et benchmark</div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/files/serve?path=...</span>
+    </div>
+    <div class="endpoint-desc">Sert un fichier depuis data/ (chemin restreint — sécurité H2)</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/audit/logs</span>
+    </div>
+    <div class="endpoint-desc">Dernières entrées du log d'audit (request_id, IP, sha256, temps, statut)</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-post">POST</span>
+      <span class="endpoint-path">/benchmark/run</span>
+    </div>
+    <div class="endpoint-desc">Lance le benchmark sur les images disponibles dans data/input/</div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-line">
+      <span class="method m-get">GET</span>
+      <span class="endpoint-path">/health</span>
+    </div>
+    <div class="endpoint-desc">Health check — retourne <code style="font-family:var(--mono);color:var(--accent-dk)">{"status": "ok"}</code></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

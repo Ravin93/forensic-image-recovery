@@ -1,0 +1,93 @@
+{
+  "input": "data/dumps/test_audit/fragments",
+  "formats": [
+    "jpeg"
+  ],
+  "offsets": [],
+  "extracted": [],
+  "validations": [
+    {
+      "path": "output/audit_test2/reconstructed.jpg",
+      "valid": true,
+      "reason": "Image valide",
+      "details": {
+        "width": 183,
+        "height": 275,
+        "format": "JPEG",
+        "mode": "RGB"
+      }
+    }
+  ],
+  "fragment_report": {
+    "source_dump": "data/dumps/test_audit/fragments/fragment_000_Unknown.jpg.bin",
+    "sha256_dump": "ba305feec178985bf7734751909851e97a14aa06620d27e056796d6840a7647b",
+    "total_fragments": 4,
+    "used_fragments": 4,
+    "rejected_fragments": 0,
+    "offsets": [
+      {
+        "index": 1,
+        "offset": 0,
+        "size": 1563,
+        "sha256": "ba305feec178985bf7734751909851e97a14aa06620d27e056796d6840a7647b"
+      },
+      {
+        "index": 2,
+        "offset": 1,
+        "size": 1367,
+        "sha256": "d9fe1f7b46a99f368d2920b03a83872f6db3e720a83354df42af6d2e5922cb66"
+      },
+      {
+        "index": 3,
+        "offset": 2,
+        "size": 1284,
+        "sha256": "08915371f12c412873e4e7366e4f3a76305a3dc6596a67b4d809c0b060e94631"
+      },
+      {
+        "index": 4,
+        "offset": 3,
+        "size": 1239,
+        "sha256": "7cf83403a4802a1319ace0e88d6d1726b8aab8ed391def08e0ec602ef4134745"
+      }
+    ],
+    "fragments_used": [
+      {
+        "index": 3,
+        "offset": 2,
+        "size": 1284,
+        "continuity_score": 1.0,
+        "sha256": "08915371f12c412873e4e7366e4f3a76305a3dc6596a67b4d809c0b060e94631"
+      },
+      {
+        "index": 1,
+        "offset": 0,
+        "size": 1563,
+        "continuity_score": 1.0,
+        "sha256": "ba305feec178985bf7734751909851e97a14aa06620d27e056796d6840a7647b"
+      },
+      {
+        "index": 2,
+        "offset": 1,
+        "size": 1367,
+        "continuity_score": 0.6475250306983656,
+        "sha256": "d9fe1f7b46a99f368d2920b03a83872f6db3e720a83354df42af6d2e5922cb66"
+      },
+      {
+        "index": 4,
+        "offset": 3,
+        "size": 1239,
+        "continuity_score": 0.6617408395807547,
+        "sha256": "7cf83403a4802a1319ace0e88d6d1726b8aab8ed391def08e0ec602ef4134745"
+      }
+    ],
+    "fragments_rejected": [],
+    "assembly": {
+      "path": "output/audit_test2/reconstructed.jpg",
+      "size": 5453,
+      "sha256": "9a05d58e200e46e6b407adb2b5bc05069d97173bb26bfe24f8a9457420d157aa",
+      "fragment_count": 4,
+      "assembly_score": 0.8273164675697801
+    },
+    "assembly_score": 0.8273164675697801
+  }
+}

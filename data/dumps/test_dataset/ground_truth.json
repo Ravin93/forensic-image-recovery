@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-05-12T23:45:56",
+  "seed": 42,
+  "sources": [
+    {
+      "path": "data/input/demo_real.jpeg",
+      "name": "demo_real.jpeg",
+      "size": 298807,
+      "sha256": "ac836236896b5061d6cedf2bf513647aabd0ffb1c226b6045770ec788c8b623f",
+      "n_fragments": 6
+    }
+  ],
+  "config": {
+    "n_fragments": 6,
+    "shuffle": true,
+    "loss_ratio": 0.2,
+    "noise_between": true,
+    "noise_size": 512,
+    "mix_images": false
+  },
+  "dump": {
+    "path": "data/dumps/test_dataset/synthetic_dump_1778622356.bin",
+    "size": 252022,
+    "sha256": "4f9f73db45fa7a1f0190b46b87ff0583ad087dd6126431087c4beee9cbd953f9"
+  },
+  "fragments": {
+    "total": 6,
+    "retained": 5,
+    "lost": 1,
+    "offsets": [
+      {
+        "fragment_index": 1,
+        "source_image": "demo_real.jpeg",
+        "dump_offset": 0,
+        "original_offset": 46645,
+        "size": 45230,
+        "sha256": "bab1a30f8fc1e327456a5423577acb66e2cd26c095fb92e24eb4373ad633890a"
+      },
+      {
+        "fragment_index": 2,
+        "source_image": "demo_real.jpeg",
+        "dump_offset": 45742,
+        "original_offset": 91875,
+        "size": 49327,
+        "sha256": "12071335842fd8fc80f05aaba9aee5b6bbb9247afabcf4094e5e3293e9997838"
+      },
+      {
+        "fragment_index": 4,
+        "source_image": "demo_real.jpeg",
+        "dump_offset": 95581,
+        "original_offset": 190035,
+        "size": 48478,
+        "sha256": "58deede0768ae85f9cf198b61a6dc92651d150b96a8a753d43eed1d70ff4cb57"
+      },
+      {
+        "fragment_index": 0,
+        "source_image": "demo_real.jpeg",
+        "dump_offset": 144571,
+        "original_offset": 0,
+        "size": 46645,
+        "sha256": "1e490a678c0a9a56d6fef92e068a6389cd1ab201a7b2170bef5577704611c121"
+      },
+      {
+        "fragment_index": 5,
+        "source_image": "demo_real.jpeg",
+        "dump_offset": 191728,
+        "original_offset": 238513,
+        "size": 60294,
+        "sha256": "ba7c3c88dfe6adf40f9831de5a665a4ec1698102b14a2b30d51ad86d4ec08469"
+      }
+    ]
+  },
+  "lost_fragments": [
+    {
+      "index": 3,
+      "source_image": "demo_real.jpeg",
+      "original_offset": 141202,
+      "size": 48833,
+      "sha256": "27395270ac617d6f904ccfbf0af6cfa15c1b5dc5b9213e531a5cf7b938baaf86"
+    }
+  ]
+}

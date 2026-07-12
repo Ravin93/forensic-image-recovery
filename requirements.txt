@@ -1,0 +1,12 @@
+numpy
+opencv-python
+Pillow
+scikit-image
+fastapi
+uvicorn
+pytest
+matplotlib
+pandas
+httpx
+python-multipart
+reportlab

@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forensic Recovery — Éditeur de masque</title>
+<style>
+:root {
+  --bg:        #f5f0e8;
+  --surface:   #edeae3;
+  --surface2:  #e4e0d8;
+  --border:    #cfc9be;
+  --text:      #1e1c18;
+  --muted:     #6b6358;
+  --accent:    #0d9488;
+  --accent-bg: #e6f4f3;
+  --accent-dk: #0f766e;
+  --success:   #4d7c5f;
+  --error:     #9b4444;
+  --warn:      #7d6b2f;
+  --sans: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono: 'Courier New', Courier, monospace;
+  --r:  12px;
+  --rs:  8px;
+  --rp: 999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Header ─── */
+header {
+  height: 56px;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-right: auto;
+}
+
+.logo-mark {
+  width: 30px; height: 30px;
+  background: var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-mark svg { display: block; }
+.logo-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.logo-sub  { font-size: 0.62rem; color: var(--muted); }
+
+.back-btn {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--rp);
+  background: var(--bg);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.back-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+
+/* ─── Main 3-column layout ─── */
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  min-height: 0;
+}
+
+/* ─── Tools panel ─── */
+.tools-panel {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.panel-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.panel-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ─── Dropzone ─── */
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r);
+  padding: 1.2rem 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg);
+}
+.dropzone:hover, .dropzone.over {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.dropzone.loaded {
+  border-style: solid;
+  border-color: var(--success);
+  background: rgba(77,124,95,0.06);
+}
+
+.dz-icon  { font-size: 1.3rem; display: block; margin-bottom: 0.35rem; opacity: 0.5; }
+.dz-text  { font-size: 0.73rem; color: var(--muted); line-height: 1.5; }
+.dz-file  { font-family: var(--mono); font-size: 0.62rem; color: var(--success); margin-top: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#file-input { display: none; }
+
+/* ─── Workflow hint ─── */
+.workflow-hint {
+  background: var(--accent-bg);
+  border: 1px solid rgba(13,148,136,0.2);
+  border-radius: var(--rs);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.workflow-hint span { color: var(--accent); font-weight: 600; }
+
+/* ─── Tool buttons ─── */
+.tool-row { display: flex; gap: 0.4rem; }
+
+.tool-btn {
+  flex: 1;
+  padding: 0.5rem 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.tool-btn:hover  { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); font-weight: 600; }
+
+/* ─── Field ─── */
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.field label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.field input[type=range]  { width: 100%; accent-color: var(--accent); cursor: pointer; }
+.field input[type=number] {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  width: 100%;
+}
+
+.brush-preview {
+  width: 100%;
+  height: 32px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* ─── Action buttons ─── */
+.act-row { display: flex; gap: 0.4rem; }
+
+.act-btn {
+  flex: 1;
+  padding: 0.45rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.act-btn:hover        { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.act-btn.danger:hover { border-color: var(--error);  color: var(--error);  background: rgba(155,68,68,0.06); }
+
+.act-full {
+  width: 100%;
+  padding: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.act-full:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* ─── Run button ─── */
+.run-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.run-btn:hover:not(:disabled) { background: var(--accent-dk); }
+.run-btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; border: 1px solid var(--border); }
+
+/* ─── Loader ─── */
+.loader { display: none; align-items: center; gap: 0.5rem; }
+.loader.on { display: flex; }
+
+.loader-track {
+  flex: 1;
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.loader-track::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sweep 1.4s ease-in-out infinite;
+}
+@keyframes sweep { to { left: 140%; } }
+
+.loader-msg {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--accent);
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+/* ─── Canvas zone ─── */
+.canvas-zone {
+  position: relative;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas-label {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.8rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+  z-index: 3;
+  pointer-events: none;
+  background: var(--surface);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--rp);
+  border: 1px solid var(--border);
+}
+.canvas-label mark {
+  background: var(--accent-bg);
+  color: var(--accent-dk);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+#canvas-image { position: absolute; image-rendering: auto; }
+#canvas-mask  { position: absolute; cursor: crosshair; }
+
+.empty-canvas {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 2;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Results panel ─── */
+.results-panel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.result-img {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.result-img-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--surface2);
+}
+
+.rdot { width: 6px; height: 6px; border-radius: 50%; }
+
+.result-img img {
+  width: 100%;
+  display: block;
+  min-height: 70px;
+  object-fit: cover;
+  background: var(--surface2);
+}
+
+/* ─── Score card ─── */
+.score-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1rem;
+  text-align: center;
+}
+.score-val {
+  font-family: var(--mono);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.score-lbl {
+  font-size: 0.62rem;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+}
+.strategy-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--rp);
+  font-size: 0.65rem;
+  color: var(--accent);
+  background: var(--accent-bg);
+  font-weight: 600;
+}
+.score-detail {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+/* ─── Candidates ─── */
+.cands-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+.cand-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.68rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+.cand-row:last-child { border-bottom: none; }
+.cand-row.best { color: var(--accent-dk); font-weight: 600; }
+.cand-score {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--rp);
+}
+
+/* ─── Error ─── */
+.error-box {
+  border: 1px solid var(--error);
+  border-radius: var(--r);
+  padding: 0.8rem;
+  background: rgba(155,68,68,0.06);
+  font-size: 0.72rem;
+  color: var(--error);
+  line-height: 1.6;
+}
+
+.empty-results {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 2.5rem 0;
+  line-height: 2;
+}
+
+hr { border: none; border-top: 1px solid var(--border); }
+
+/* ─── Iteration buttons ─── */
+.iter-row { display: flex; gap: 0.4rem; margin-top: 0.25rem; }
+
+.iter-btn {
+  flex: 1;
+  padding: 0.6rem 0.35rem;
+  border-radius: var(--r);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.35;
+}
+.iter-primary {
+  background: var(--accent);
+  border: 1.5px solid var(--accent);
+  color: #fff;
+}
+.iter-primary:hover { background: var(--accent-dk); border-color: var(--accent-dk); }
+.iter-secondary {
+  background: var(--accent-bg);
+  border: 1.5px solid var(--accent);
+  color: var(--accent-dk);
+}
+.iter-secondary:hover { background: var(--accent); color: #fff; }
+
+/* ─── Compare banner ─── */
+.compare-banner {
+  border-radius: var(--rs);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.compare-banner.user-wins { background: rgba(77,124,95,.12); border: 1px solid var(--success); color: var(--success); }
+.compare-banner.auto-wins { background: var(--accent-bg);    border: 1px solid var(--accent);  color: var(--accent-dk); }
+.compare-note { font-size: 0.62rem; font-weight: 400; opacity: 0.85; }
+
+/* ─── Compare columns ─── */
+.compare-col {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.compare-col.winner { border-color: var(--success); opacity: 1; }
+.compare-col img { width: 100%; display: block; min-height: 60px; object-fit: cover; background: var(--surface2); }
+
+.compare-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Coverage bar ─── */
+.coverage-bar-wrap {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 0.65rem 0.75rem;
+}
+.coverage-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.coverage-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.coverage-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.coverage-hint {
+  font-size: 0.58rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+  opacity: 0.8;
+}
+
+.compare-section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+.compare-col-mask-label {
+  font-size: 0.58rem;
+  color: var(--muted);
+  padding: 0.25rem 0.65rem 0;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compare-col-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.62rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.compare-score-val { font-family: var(--mono); font-weight: 700; font-size: 0.78rem; }
+
+/* ─── Responsive ─── */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 200px 1fr 240px; }
+}
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: auto 400px auto; }
+  body { overflow: auto; }
+  .canvas-zone { height: 400px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2L13 5V11L8 14L3 11V5L8 2Z" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <circle cx="8" cy="8" r="2.2" fill="#fff"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">Forensic Recovery</div>
+      <div class="logo-sub">Éditeur de masque</div>
+    </div>
+  </div>
+  <a href="forensic_ui.html" class="back-btn">← Interface principale</a>
+</header>
+
+<div class="layout">
+
+  <!-- ─── Outils ─── -->
+  <div class="tools-panel">
+
+    <div class="panel-title">Image source</div>
+
+    <div class="dropzone" id="dropzone">
+      <span class="dz-icon">⬡</span>
+      <div class="dz-text">Déposer une image <strong style="color:var(--error)">corrompue</strong><br><small>JPEG ou PNG</small></div>
+      <div class="dz-file" id="dz-file"></div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png">
+    </div>
+
+    <div class="workflow-hint">
+      <span>Workflow</span><br>
+      1. Charger une image corrompue<br>
+      2. Peindre la zone abîmée<br>
+      3. Lancer la reconstruction<br>
+      4. ↺ Même masque — itérer<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;↩ Nouveau masque — affiner
+    </div>
+
+    <hr>
+
+    <div class="panel-title">Outils de dessin</div>
+
+    <div class="tool-row">
+      <button class="tool-btn active" id="btn-brush"  onclick="setTool('brush')">✏ Pinceau</button>
+      <button class="tool-btn"        id="btn-eraser" onclick="setTool('eraser')">◻ Gomme</button>
+    </div>
+
+    <div class="field">
+      <label>Taille : <span id="size-val">20</span>px</label>
+      <input type="range" id="brush-size" min="2" max="80" value="20"
+             oninput="updateSize(this.value)">
+      <div class="brush-preview" id="brush-preview">
+        <div id="brush-dot" style="border-radius:50%;background:rgba(13,148,136,0.35);pointer-events:none"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Opacité overlay</label>
+      <input type="range" id="overlay-op" min="10" max="90" value="50"
+             oninput="setOverlay(this.value)">
+    </div>
+
+    <hr>
+
+    <div class="act-row">
+      <button class="act-btn" onclick="resetMask()">↺ Reset</button>
+      <button class="act-btn" onclick="invertMask()">⇄ Inverser</button>
+    </div>
+    <button class="act-full" onclick="downloadMask()">↓ Télécharger masque PNG</button>
+
+    <hr>
+
+    <div class="panel-title">Reconstruction</div>
+
+    <div class="field">
+      <label>Stratégies testées : <span id="att-val">8</span></label>
+      <input type="range" id="max-attempts" min="2" max="11" value="8"
+             oninput="document.getElementById('att-val').textContent=this.value">
+    </div>
+
+    <button class="run-btn" id="run-btn" disabled onclick="runRepair()">
+      ▶ Lancer la reconstruction
+    </button>
+
+    <div class="loader" id="loader">
+      <div class="loader-track"></div>
+      <div class="loader-msg" id="loader-msg">Reconstruction…</div>
+    </div>
+
+  </div>
+
+  <!-- ─── Canvas ─── -->
+  <div class="canvas-zone" id="canvas-zone">
+    <div class="canvas-label">Peignez la zone corrompue en <mark>teal</mark></div>
+    <div class="empty-canvas" id="empty-canvas">
+      ◈<br>
+      Chargez une image corrompue<br>
+      <span style="font-size:.7rem;color:var(--muted)">Depuis data/corrupted/ après une analyse</span>
+    </div>
+    <canvas id="canvas-image"></canvas>
+    <canvas id="canvas-mask"></canvas>
+  </div>
+
+  <!-- ─── Résultats ─── -->
+  <div class="results-panel">
+    <div class="panel-title">Résultats</div>
+    <div class="empty-results" id="empty-results">
+      ◈<br>
+      Dessinez un masque<br>
+      puis lancez la reconstruction
+    </div>
+    <div id="results-content"></div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+let tool = 'brush';
+let painting = false;
+let imgFile  = null;
+let imgNatW  = 0, imgNatH = 0;
+let overlayOpacity = 0.5;
+let preloadedPath  = null;
+let lastReconPath  = null;
+let preloadedPath    = null;
+let preloadedOrigPath = null;
+let lastReconPath    = null;
+
+const canvasImg  = document.getElementById('canvas-image');
+const canvasMask = document.getElementById('canvas-mask');
+const ctxImg     = canvasImg.getContext('2d');
+const ctxMask    = canvasMask.getContext('2d');
+const zone       = document.getElementById('canvas-zone');
+
+/* ── Drop zone ── */
+const dropzone  = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click',    () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave',  () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+
+function loadFile(f) {
+  if (!f.type.match(/image\/(jpeg|png)/)) return;
+  imgFile = f;
+  document.getElementById('dz-file').textContent = f.name;
+  dropzone.classList.add('loaded');
+  document.getElementById('empty-canvas').style.display = 'none';
+  document.getElementById('run-btn').disabled = false;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      imgNatW = img.width;
+      imgNatH = img.height;
+      resizeCanvases();
+      ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+      resetMask();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+
+function resizeCanvases() {
+  const ww = zone.clientWidth  - 4;
+  const wh = zone.clientHeight - 4;
+  const ratio = Math.min(ww / imgNatW, wh / imgNatH);
+  const cw = Math.floor(imgNatW * ratio);
+  const ch = Math.floor(imgNatH * ratio);
+
+  [canvasImg, canvasMask].forEach(c => {
+    c.width  = cw; c.height = ch;
+    c.style.width  = cw + 'px';
+    c.style.height = ch + 'px';
+    c.style.left   = ((ww - cw) / 2 + 2) + 'px';
+    c.style.top    = ((wh - ch) / 2 + 2) + 'px';
+  });
+}
+
+/* ── Pré-chargement depuis URL param ── */
+(function loadFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const path = params.get('corrupted_path');
+  if (!path) return;
+
+  preloadedPath     = path;
+  preloadedOrigPath = params.get('original_path') || null;
+  const url = `${API}/files/serve?path=${encodeURIComponent(path)}`;
+  const fname = path.split('/').pop();
+
+  document.getElementById('dz-file').textContent = '⬡ ' + fname + ' (pré-chargée)';
+  dropzone.classList.add('loaded');
+  document.getElementById('empty-canvas').style.display = 'none';
+  document.getElementById('run-btn').disabled = false;
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    imgNatW = img.width;
+    imgNatH = img.height;
+    resizeCanvases();
+    ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+    resetMask();
+    imgFile = { _preloaded: true, name: fname };
+  };
+  img.onerror = () => {
+    document.getElementById('dz-file').textContent = 'Erreur — chargez manuellement';
+  };
+  img.src = url;
+})();
+
+/* ── Dessin ── */
+function setTool(t) {
+  tool = t;
+  document.getElementById('btn-brush').classList.toggle('active',  t === 'brush');
+  document.getElementById('btn-eraser').classList.toggle('active', t === 'eraser');
+  canvasMask.style.cursor = t === 'eraser' ? 'cell' : 'crosshair';
+}
+
+function getPos(e) {
+  const r = canvasMask.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return {
+    x: (t.clientX - r.left) * (canvasMask.width  / r.width),
+    y: (t.clientY - r.top)  * (canvasMask.height / r.height),
+  };
+}
+
+function draw(e) {
+  if (!painting) return;
+  e.preventDefault();
+  const { x, y } = getPos(e);
+  const sz = parseInt(document.getElementById('brush-size').value);
+  ctxMask.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+  ctxMask.fillStyle = `rgba(13,148,136,${overlayOpacity})`;
+  ctxMask.beginPath();
+  ctxMask.arc(x, y, sz / 2, 0, Math.PI * 2);
+  ctxMask.fill();
+}
+
+canvasMask.addEventListener('mousedown',  e => { painting = true;  draw(e); });
+canvasMask.addEventListener('mousemove',  draw);
+canvasMask.addEventListener('mouseup',    () => { painting = false; });
+canvasMask.addEventListener('mouseleave', () => { painting = false; });
+canvasMask.addEventListener('touchstart', e => { painting = true;  draw(e); }, { passive: false });
+canvasMask.addEventListener('touchmove',  draw, { passive: false });
+canvasMask.addEventListener('touchend',   () => { painting = false; });
+
+function updateSize(v) {
+  document.getElementById('size-val').textContent = v;
+  const dot = document.getElementById('brush-dot');
+  const px  = Math.min(parseInt(v), 52);
+  dot.style.width  = px + 'px';
+  dot.style.height = px + 'px';
+}
+updateSize(20);
+
+function setOverlay(v) {
+  overlayOpacity = v / 100;
+}
+
+function resetMask() {
+  ctxMask.clearRect(0, 0, canvasMask.width, canvasMask.height);
+}
+
+function invertMask() {
+  const id = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
+  const d  = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const painted = d[i+3] > 10;
+    if (painted) {
+      d[i+3] = 0;
+    } else {
+      d[i] = 13; d[i+1] = 148; d[i+2] = 136;
+      d[i+3] = Math.round(overlayOpacity * 255);
+    }
+  }
+  ctxMask.putImageData(id, 0, 0);
+}
+
+function downloadMask() {
+  const bin = buildBinaryMaskCanvas();
+  const a   = document.createElement('a');
+  a.download = 'mask.png';
+  a.href = bin.toDataURL('image/png');
+  a.click();
+}
+
+/* ── Masque binaire aux dimensions réelles de l'image ── */
+function buildBinaryMaskCanvas() {
+  /* Étape 1 : masque aux dimensions du canvas d'affichage */
+  const tmp = document.createElement('canvas');
+  tmp.width  = canvasMask.width;
+  tmp.height = canvasMask.height;
+  const ctx  = tmp.getContext('2d');
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, tmp.width, tmp.height);
+
+  const src = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
+  const dst = ctx.getImageData(0, 0, tmp.width, tmp.height);
+  for (let i = 0; i < src.data.length; i += 4) {
+    if (src.data[i+3] > 10) {
+      dst.data[i] = 255; dst.data[i+1] = 255; dst.data[i+2] = 255; dst.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(dst, 0, 0);
+
+  /* Étape 2 : redimensionner aux dimensions RÉELLES (imgNatW × imgNatH)
+     imageSmoothingEnabled = false → masque binaire propre sans anti-aliasing
+     Évite l'erreur OpenCV "Sizes of input arguments do not match" */
+  if (imgNatW > 0 && imgNatH > 0 && (tmp.width !== imgNatW || tmp.height !== imgNatH)) {
+    const real = document.createElement('canvas');
+    real.width  = imgNatW;
+    real.height = imgNatH;
+    const rctx  = real.getContext('2d');
+    rctx.imageSmoothingEnabled = false;
+    rctx.drawImage(tmp, 0, 0, imgNatW, imgNatH);
+    return real;
+  }
+
+  return tmp;
+}
+
+/* ── Loader ── */
+const LOADER_MSGS = [
+  'Préparation du masque…', 'Envoi au serveur…', 'Inpainting r3…', 'Inpainting r5…',
+  'Inpainting r7…', 'Débruitage médian…', 'Bilatéral…', 'Hybride…',
+  'Calcul des scores…', 'Sélection du meilleur…',
+];
+let ldrIdx = 0, ldrTimer = null;
+
+function startLoader() {
+  ldrIdx = 0;
+  document.getElementById('loader-msg').textContent = LOADER_MSGS[0];
+  document.getElementById('loader').classList.add('on');
+  ldrTimer = setInterval(() => {
+    ldrIdx = (ldrIdx + 1) % LOADER_MSGS.length;
+    document.getElementById('loader-msg').textContent = LOADER_MSGS[ldrIdx];
+  }, 800);
+}
+
+function stopLoader() {
+  clearInterval(ldrTimer);
+  document.getElementById('loader').classList.remove('on');
+}
+
+/* ── Reconstruction ── */
+async function runRepair() {
+  if (!imgFile) return;
+
+  const pixels = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height).data;
+  let white = 0;
+  for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 10) white++;
+  if (white === 0) {
+    alert('Le masque est vide — peignez la zone à reconstruire.');
+    return;
+  }
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  startLoader();
+  document.getElementById('empty-results').style.display = 'none';
+  document.getElementById('results-content').innerHTML = '';
+
+  const maskBlob = await new Promise(res => buildBinaryMaskCanvas().toBlob(res, 'image/png'));
+
+  let imageBlob;
+  if (imgFile._preloaded && preloadedPath) {
+    try {
+      const r = await fetch(`${API}/files/serve?path=${encodeURIComponent(preloadedPath)}`);
+      imageBlob = await r.blob();
+    } catch {
+      stopLoader();
+      showError("Impossible de récupérer l'image pré-chargée.");
+      btn.disabled = false;
+      return;
+    }
+  } else {
+    imageBlob = imgFile;
+  }
+
+  const fd = new FormData();
+  fd.append('image',     imageBlob, imgFile.name || 'image.jpg');
+  fd.append('user_mask', maskBlob,  'mask.png');
+  fd.append('max_attempts', document.getElementById('max-attempts').value);
+  if (preloadedOrigPath) fd.append('original_image_path', preloadedOrigPath);
+
+  try {
+    const resp = await fetch(`${API}/reconstruction/compare-masks`, { method: 'POST', body: fd });
+    stopLoader();
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      showError(err.detail || 'Erreur inconnue');
+    } else {
+      renderResults(await resp.json());
+    }
+  } catch (e) {
+    stopLoader();
+    showError('Impossible de contacter l\'API sur ' + API);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function scoreColor(v) {
+  if (v >= 80) return 'var(--success)';
+  if (v >= 60) return 'var(--accent)';
+  if (v >= 40) return 'var(--warn)';
+  return 'var(--error)';
+}
+
+function scoreTagCls(v) {
+  if (v >= 70) return 'background:rgba(77,124,95,.15);color:var(--success)';
+  if (v >= 40) return 'background:rgba(125,107,47,.12);color:var(--warn)';
+  return 'background:rgba(155,68,68,.12);color:var(--error)';
+}
+
+function showError(msg) {
+  document.getElementById('results-content').innerHTML =
+    `<div class="error-box"><strong style="display:block;margin-bottom:.3rem;letter-spacing:.04em">Erreur</strong>${esc(msg)}</div>`;
+}
+
+function coverageColor(pct) {
+  if (pct >= 80) return 'var(--success)';
+  if (pct >= 50) return 'var(--warn)';
+  return 'var(--error)';
+}
+
+function renderResults(data) {
+  lastReconPath   = data.reconstructed_image;
+  const score    = parseFloat(data.score || 0).toFixed(1);
+  const strategy = data.selected_repair_strategy || '—';
+  const retries  = data.retry_count ?? 0;
+  const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
+  const maskUrl  = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
+
+  const cands = (data.candidates || []).slice(0, 6).map(c => {
+    const s = parseFloat(c.score || 0).toFixed(1);
+    const isBest = c.strategy === strategy;
+    return `<div class="cand-row ${isBest ? 'best' : ''}">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${isBest ? '▶ ' : ''}${esc(c.strategy)}</span>
+      <span class="cand-score" style="${scoreTagCls(parseFloat(s))}">${s}</span>
+  lastReconPath = data.reconstructed_image;
+
+  const winner      = data.winner || 'user_mask';
+  const note        = data.comparison_note || '';
+  const coveragePct = data.coverage_ratio != null ? Math.round(data.coverage_ratio * 100) : null;
+  const ud          = data.user_mask || {};
+  const ad          = data.auto_mask || {};
+
+  const userScore    = parseFloat(ud.score ?? 0).toFixed(1);
+  const autoScore    = parseFloat(ad.score ?? 0).toFixed(1);
+  const userStrategy = ud.selected_repair_strategy || '—';
+  const autoStrategy = ad.selected_repair_strategy || '—';
+
+  const userReconUrl = ud.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.reconstructed_image)}` : '';
+  const autoReconUrl = ad.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.reconstructed_image)}` : '';
+  const userMaskUrl = ud.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.mask_path)}` : '';
+  const autoMaskUrl = ad.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.mask_path)}` : '';
+
+  const bestScore    = parseFloat(data.score || 0).toFixed(1);
+  const bestStrategy = data.selected_repair_strategy || '—';
+  const retries      = (winner === 'user_mask' ? ud.retry_count : ad.retry_count) ?? 0;
+
+  const bannerCls   = winner === 'user_mask' ? 'user-wins' : 'auto-wins';
+  const bannerTitle = winner === 'user_mask' ? '✓ Votre masque est meilleur' : '⚡ Détection auto est meilleure';
+
+  const userWins = winner === 'user_mask';
+  const autoWins = winner === 'auto_mask';
+
+  const colImg = (reconUrl, maskUrl, score, strategy, wins) => `
+    <div class="compare-col ${wins ? 'winner' : ''}">
+      <div class="compare-col-head">
+        <span class="rdot" style="background:${wins ? 'var(--success)' : 'var(--muted)'}"></span>
+        ${wins ? '★ ' : ''}Résultat reconstruit
+      </div>
+      ${reconUrl ? `<img src="${reconUrl}" alt="" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
+      <div class="compare-col-foot">
+        <span class="compare-score-val" style="color:${scoreColor(parseFloat(score))}">${score}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px;font-size:.6rem">${esc(strategy)}</span>
+      </div>
+      ${maskUrl ? `
+      <div class="compare-col-mask-label">Masque utilisé</div>
+      <img src="${maskUrl}" alt="Masque" style="width:100%;display:block;min-height:40px;object-fit:cover;background:var(--surface2)" onerror="this.style.opacity=.3">
+      ` : ''}
+    </div>`;
+
+  document.getElementById('results-content').innerHTML = `
+    <div class="compare-banner ${bannerCls}">
+      <span>${bannerTitle}</span>
+      <span class="compare-note">${esc(note)}</span>
+    </div>
+
+    ${coveragePct != null ? `
+    <div class="coverage-bar-wrap">
+      <div class="coverage-bar-label">
+        <span>Couverture de la corruption</span>
+        <span style="font-weight:700;color:${coverageColor(coveragePct)}">${coveragePct}%</span>
+      </div>
+      <div class="coverage-track">
+        <div class="coverage-fill" style="width:${coveragePct}%;background:${coverageColor(coveragePct)}"></div>
+      </div>
+      <div class="coverage-hint">Portion de la zone corrompue couverte par votre masque</div>
+    </div>` : ''}
+
+    <div class="compare-section-label">Votre masque</div>
+    ${colImg(userReconUrl, userMaskUrl, userScore, userStrategy, userWins)}
+
+    <div class="compare-section-label">Détection automatique</div>
+    ${colImg(autoReconUrl, autoMaskUrl, autoScore, autoStrategy, autoWins)}
+
+    <div class="score-card">
+      <div class="score-val" style="color:${scoreColor(parseFloat(bestScore))}">${bestScore}<span style="font-size:1rem;opacity:.4">/100</span></div>
+      <div class="score-lbl">Meilleur score</div>
+      <div class="strategy-badge">${esc(bestStrategy)}</div>
+      <div class="score-detail">${retries} stratégie(s) testée(s)</div>
+    </div>
+    <div>
+      <div class="cands-title">Top candidats</div>
+      ${cands}
+    </div>
+    <div class="iter-row">
+      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque — relancez directement">
+        ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
+      </button>
+      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge — redessinez une zone différente">
+
+    <div class="iter-row">
+      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque">
+        ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
+      </button>
+      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge">
+        ↩ Nouveau masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
+      </button>
+    </div>`;
+}
+
+/* ── Itération : relancer avec le MÊME masque sur l'image reconstruite ── */
+async function rerunWithSameMask() {
+  if (!lastReconPath) return;
+  const url   = `${API}/files/serve?path=${encodeURIComponent(lastReconPath)}`;
+  const fname = lastReconPath.split('/').pop();
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    if (img.width === imgNatW && img.height === imgNatH) {
+      /* Mêmes dimensions : redessine l'image sans toucher au masque */
+      ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+    } else {
+      /* Dimensions différentes (cas rare) : sauvegarde le masque, resize, restaure */
+      const saved = ctxMask.getImageData(0, 0, canvasMask.width, canvasMask.height);
+      imgNatW = img.width; imgNatH = img.height;
+      resizeCanvases();
+      ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+      ctxMask.putImageData(saved, 0, 0);
+    }
+
+    preloadedPath = lastReconPath;
+    imgFile = { _preloaded: true, name: fname };
+
+    document.getElementById('dz-file').textContent = '↺ ' + fname + ' (même masque)';
+    dropzone.classList.add('loaded');
+    document.getElementById('empty-canvas').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('empty-results').style.display = 'block';
+    document.getElementById('results-content').innerHTML = '';
+  };
+  img.onerror = () => showError("Impossible de charger l'image reconstruite.");
+  img.src = url;
+}
+
+/* ── Itération : nouvelle source avec masque vierge ── */
+async function useResultAsSource() {
+  if (!lastReconPath) return;
+  const url   = `${API}/files/serve?path=${encodeURIComponent(lastReconPath)}`;
+  const fname = lastReconPath.split('/').pop();
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    imgNatW = img.width;
+    imgNatH = img.height;
+    resizeCanvases();
+    ctxImg.drawImage(img, 0, 0, canvasImg.width, canvasImg.height);
+    resetMask();
+
+    preloadedPath = lastReconPath;
+    imgFile = { _preloaded: true, name: fname };
+
+    document.getElementById('dz-file').textContent = '↩ ' + fname + ' (nouveau masque)';
+    dropzone.classList.add('loaded');
+    document.getElementById('empty-canvas').style.display = 'none';
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('empty-results').style.display = 'block';
+    document.getElementById('results-content').innerHTML = '';
+  };
+  img.onerror = () => showError("Impossible de charger l'image reconstruite pour l'itération.");
+  img.src = url;
+}
+</script>
+</body>
+</html>
