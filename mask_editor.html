@@ -723,6 +723,8 @@ let painting = false;
 let imgFile  = null;
 let imgNatW  = 0, imgNatH = 0;
 let overlayOpacity = 0.5;
+let preloadedPath  = null;
+let lastReconPath  = null;
 let preloadedPath    = null;
 let preloadedOrigPath = null;
 let lastReconPath    = null;
@@ -1039,6 +1041,19 @@ function coverageColor(pct) {
 }
 
 function renderResults(data) {
+  lastReconPath   = data.reconstructed_image;
+  const score    = parseFloat(data.score || 0).toFixed(1);
+  const strategy = data.selected_repair_strategy || '—';
+  const retries  = data.retry_count ?? 0;
+  const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
+  const maskUrl  = `${API}/files/serve?path=${encodeURIComponent(data.mask_path)}`;
+
+  const cands = (data.candidates || []).slice(0, 6).map(c => {
+    const s = parseFloat(c.score || 0).toFixed(1);
+    const isBest = c.strategy === strategy;
+    return `<div class="cand-row ${isBest ? 'best' : ''}">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${isBest ? '▶ ' : ''}${esc(c.strategy)}</span>
+      <span class="cand-score" style="${scoreTagCls(parseFloat(s))}">${s}</span>
   lastReconPath = data.reconstructed_image;
 
   const winner      = data.winner || 'user_mask';
@@ -1118,6 +1133,15 @@ function renderResults(data) {
       <div class="strategy-badge">${esc(bestStrategy)}</div>
       <div class="score-detail">${retries} stratégie(s) testée(s)</div>
     </div>
+    <div>
+      <div class="cands-title">Top candidats</div>
+      ${cands}
+    </div>
+    <div class="iter-row">
+      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque — relancez directement">
+        ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
+      </button>
+      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge — redessinez une zone différente">
 
     <div class="iter-row">
       <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque">
