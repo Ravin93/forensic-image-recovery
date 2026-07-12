@@ -102,15 +102,33 @@ def compute_supervised_score(
     score_mask_region   = None
     score_outside       = None
     outside_preservation = None
+    zone_ssim           = None
+    bin_mask            = None
 
     if mask is not None and mask.shape[:2] == arr_orig.shape[:2]:
         bin_mask = (mask > 128).astype(bool)
         if bin_mask.any():
-            # Zone masquée
+            # Zone masquée — RMSE-based (much more sensitive than nMSE)
             orig_m  = arr_orig[bin_mask].reshape(-1, 3)
             recon_m = arr_recon[bin_mask].reshape(-1, 3)
-            mse_m = float(np.mean((orig_m.astype(np.float32) - recon_m.astype(np.float32)) ** 2))
-            score_mask_region = float(max(0.0, 1.0 - mse_m / (255.0 ** 2))) * 100.0
+            rmse_m = float(np.sqrt(np.mean((orig_m.astype(np.float32) - recon_m.astype(np.float32)) ** 2)))
+            score_mask_region = float(max(0.0, 1.0 - rmse_m / 255.0)) * 100.0
+
+            # Zone SSIM via bounding box (captures structural quality in the damaged area)
+            rows_m = np.any(bin_mask, axis=1)
+            cols_m = np.any(bin_mask, axis=0)
+            r0 = int(np.where(rows_m)[0][0]);  r1 = int(np.where(rows_m)[0][-1]) + 1
+            c0 = int(np.where(cols_m)[0][0]);  c1 = int(np.where(cols_m)[0][-1]) + 1
+            pad = 8
+            r0 = max(0, r0 - pad); r1 = min(arr_orig.shape[0], r1 + pad)
+            c0 = max(0, c0 - pad); c1 = min(arr_orig.shape[1], c1 + pad)
+            crop_orig  = arr_orig[r0:r1, c0:c1]
+            crop_recon = arr_recon[r0:r1, c0:c1]
+            if min(crop_orig.shape[:2]) >= 7:
+                zone_ssim = float(structural_similarity(crop_orig, crop_recon, channel_axis=2, data_range=255))
+            else:
+                rmse_z = float(np.sqrt(np.mean((crop_orig.astype(np.float32) - crop_recon.astype(np.float32)) ** 2)))
+                zone_ssim = float(max(0.0, 1.0 - rmse_z / 255.0))
 
         not_mask = ~bin_mask
         if not_mask.any():
@@ -125,9 +143,19 @@ def compute_supervised_score(
                 float(max(0.0, 1.0 - mse_outside_recon / max(mse_outside_corr, 1e-6)))
             )
 
-    # --- Score global ---
+    # --- Score global (zone-weighted when mask available) ---
+    if zone_ssim is not None and bin_mask is not None:
+        # The smaller the corrupted zone, the more global SSIM hides its quality.
+        # Blend zone SSIM and global SSIM: weight zone more heavily for small masks.
+        coverage = float(np.sum(bin_mask)) / float(bin_mask.size)
+        # zone_weight: 0.7 for ≤5% masks, down to 0.3 for ≥25% masks
+        zone_weight = float(max(0.3, 0.8 - coverage * 2.0))
+        effective_ssim = (1.0 - zone_weight) * ssim_recon + zone_weight * zone_ssim
+    else:
+        effective_ssim = ssim_recon
+
     score = (
-        ssim_recon * 60.0
+        effective_ssim * 60.0
         + min(float(psnr_recon), 100.0) * 0.20
         + max(0.0, gain_ssim) * 30.0
         + max(0.0, gain_psnr) * 0.20
@@ -137,7 +165,8 @@ def compute_supervised_score(
     # --- D3 : score_breakdown ---
     score_breakdown: dict[str, Any] = {
         "global_score":          score,
-        "ssim_component":        round(ssim_recon * 60.0, 3),
+        "ssim_component":        round(effective_ssim * 60.0, 3),
+        "zone_ssim":             round(zone_ssim, 4) if zone_ssim is not None else None,
         "psnr_component":        round(min(float(psnr_recon), 100.0) * 0.20, 3),
         "gain_ssim_component":   round(max(0.0, gain_ssim) * 30.0, 3),
         "gain_psnr_component":   round(max(0.0, gain_psnr) * 0.20, 3),
@@ -151,6 +180,7 @@ def compute_supervised_score(
         "score":                 score,
         "psnr":                  float(psnr_recon),
         "ssim":                  float(ssim_recon),
+        "zone_ssim":             zone_ssim,
         "gain_psnr":             gain_psnr,
         "gain_ssim":             gain_ssim,
         "psnr_corrupted":        float(psnr_corr),
@@ -169,6 +199,7 @@ def compute_supervised_score(
 def compute_blind_score(
     corrupted: str | Path | np.ndarray,
     reconstructed: str | Path | np.ndarray,
+    mask: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Score aveugle 0-100 enrichi.
 
@@ -255,11 +286,38 @@ def compute_blind_score(
     mean_block_var = float(np.mean(block_vars)) if block_vars else 0.0
     artifact_score = float(np.clip(mean_block_var / 500.0, 0.0, 1.0))
 
-    # 7. Cohérence locale (delta moyen)
+    # 7. Cohérence locale — split inside/outside mask when mask is available
     mean_delta = float(np.mean(np.abs(
         gray_r.astype(np.float32) - gray_c.astype(np.float32)
     )))
-    consistency = float(max(0.2, 1.0 - min(mean_delta / 80.0, 0.8)))
+    reconstruction_effort = 1.0  # penalty multiplier for conservative candidates
+    mean_delta_inside: float | None = None
+    mean_delta_outside: float | None = None
+
+    if mask is not None and mask.shape[:2] == gray_c.shape:
+        bin_mask_b = (mask > 128)
+        not_mask_b = ~bin_mask_b
+        if bin_mask_b.any() and not_mask_b.any():
+            mean_delta_inside  = float(np.mean(np.abs(
+                gray_r[bin_mask_b].astype(np.float32) - gray_c[bin_mask_b].astype(np.float32)
+            )))
+            mean_delta_outside = float(np.mean(np.abs(
+                gray_r[not_mask_b].astype(np.float32) - gray_c[not_mask_b].astype(np.float32)
+            )))
+            # Consistency: only penalize changes OUTSIDE the mask (artifacts)
+            consistency = float(max(0.2, 1.0 - min(mean_delta_outside / 80.0, 0.8)))
+            # Reconstruction effort: reward candidates that actually changed the masked zone
+            # Conservative (no change → delta ≈ 0) gets penalized; real inpainting changes pixels
+            if mean_delta_inside < 3.0:
+                reconstruction_effort = 0.45  # barely touched — very conservative
+            elif mean_delta_inside < 15.0:
+                reconstruction_effort = 0.60 + mean_delta_inside / 75.0
+            else:
+                reconstruction_effort = float(min(1.0, 0.80 + mean_delta_inside / 200.0))
+        else:
+            consistency = float(max(0.2, 1.0 - min(mean_delta / 80.0, 0.8)))
+    else:
+        consistency = float(max(0.2, 1.0 - min(mean_delta / 80.0, 0.8)))
 
     # Score composite pondéré (D2)
     raw = (
@@ -270,41 +328,47 @@ def compute_blind_score(
         + 0.10 * local_entropy_score
         + 0.10 * artifact_score
     )
-    score = float(max(0.0, min(100.0, raw * consistency * 100.0)))
+    score = float(max(0.0, min(100.0, raw * consistency * reconstruction_effort * 100.0)))
 
     # D3 : score_breakdown
     score_breakdown: dict[str, Any] = {
-        "global_score":         score,
-        "sharpness_component":  round(sharpness_score * 0.25 * 100.0, 2),
-        "noise_component":      round(noise_score * 0.20 * 100.0, 2),
-        "edge_component":       round(edge_continuity * 0.20 * 100.0, 2),
-        "color_component":      round(coherence_color * 0.15 * 100.0, 2),
-        "entropy_component":    round(local_entropy_score * 0.10 * 100.0, 2),
-        "artifact_component":   round(artifact_score * 0.10 * 100.0, 2),
-        "consistency_factor":   round(consistency, 3),
-        "mask_region_score":    None,
-        "outside_preservation": None,
+        "global_score":              score,
+        "sharpness_component":       round(sharpness_score * 0.25 * 100.0, 2),
+        "noise_component":           round(noise_score * 0.20 * 100.0, 2),
+        "edge_component":            round(edge_continuity * 0.20 * 100.0, 2),
+        "color_component":           round(coherence_color * 0.15 * 100.0, 2),
+        "entropy_component":         round(local_entropy_score * 0.10 * 100.0, 2),
+        "artifact_component":        round(artifact_score * 0.10 * 100.0, 2),
+        "consistency_factor":        round(consistency, 3),
+        "reconstruction_effort":     round(reconstruction_effort, 3),
+        "mean_delta_inside_mask":    round(mean_delta_inside, 2) if mean_delta_inside is not None else None,
+        "mean_delta_outside_mask":   round(mean_delta_outside, 2) if mean_delta_outside is not None else None,
+        "mask_region_score":         None,
+        "outside_preservation":      None,
     }
 
     return {
-        "mode":              "blind",
-        "score":             score,
-        "psnr":              None,
-        "ssim":              None,
-        "gain_psnr":         None,
-        "gain_ssim":         None,
-        "sharpness":         sharpness,
-        "noise_penalty":     noise_penalty,
-        "edge_continuity":   edge_continuity,
-        "coherence_color":   coherence_color,
-        "local_entropy":     entropy_r,
-        "mean_block_var":    mean_block_var,
-        "mean_delta_vs_corrupted": mean_delta,
-        "sharpness_score":   sharpness_score,
-        "noise_score":       noise_score,
-        "artifact_score":    artifact_score,
-        "consistency":       consistency,
-        "score_breakdown":   score_breakdown,
+        "mode":                       "blind",
+        "score":                      score,
+        "psnr":                       None,
+        "ssim":                       None,
+        "gain_psnr":                  None,
+        "gain_ssim":                  None,
+        "sharpness":                  sharpness,
+        "noise_penalty":              noise_penalty,
+        "edge_continuity":            edge_continuity,
+        "coherence_color":            coherence_color,
+        "local_entropy":              entropy_r,
+        "mean_block_var":             mean_block_var,
+        "mean_delta_vs_corrupted":    mean_delta,
+        "mean_delta_inside_mask":     mean_delta_inside,
+        "mean_delta_outside_mask":    mean_delta_outside,
+        "reconstruction_effort":      reconstruction_effort,
+        "sharpness_score":            sharpness_score,
+        "noise_score":                noise_score,
+        "artifact_score":             artifact_score,
+        "consistency":                consistency,
+        "score_breakdown":            score_breakdown,
     }
 
 
@@ -321,4 +385,4 @@ def score_candidate(
     """Retourne le meilleur scoring disponible avec score_breakdown."""
     if original is not None:
         return compute_supervised_score(original, reconstructed, corrupted, mask=mask)
-    return compute_blind_score(corrupted, reconstructed)
+    return compute_blind_score(corrupted, reconstructed, mask=mask)

@@ -289,6 +289,19 @@ header {
   color: var(--accent);
 }
 
+.mode-help {
+  display: none;
+  padding: 0.55rem 0.7rem;
+  background: var(--warn-bg);
+  border: 1px solid rgba(125,107,47,0.35);
+  border-radius: var(--rs);
+  color: var(--warn);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.mode-help.on { display: block; }
+
 /* ─── Run button ─── */
 .run-btn {
   width: 100%;
@@ -313,7 +326,7 @@ header {
 /* ─── Divider ─── */
 hr { border: none; border-top: 1px solid var(--border); }
 
-/* ─── Mask toggle ─── */
+/* ─── Mask editor redirect button ─── */
 .mask-toggle {
   width: 100%;
   padding: 0.6rem 0.9rem;
@@ -331,52 +344,9 @@ hr { border: none; border-top: 1px solid var(--border); }
   transition: all 0.15s;
 }
 
-.mask-toggle:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
-.mask-toggle.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+.mask-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
-.mask-panel { display: none; flex-direction: column; gap: 0.75rem; }
-.mask-panel.visible { display: flex; }
-
-.mask-hint {
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  color: var(--error);
-  background: var(--error-bg);
-  border: 1px solid var(--error);
-  border-radius: var(--rs);
-  padding: 0.5rem 0.75rem;
-  line-height: 1.6;
-  opacity: 0.8;
-}
-
-.mask-canvas-wrap {
-  position: relative;
-  border: 1px solid var(--border);
-  border-radius: var(--rs);
-  background: var(--surface2);
-  overflow: hidden;
-  cursor: crosshair;
-  height: 180px;
-}
-
-#mask-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#mask-preview-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.mask-tools { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
-
+/* dead CSS kept for potential re-use — effectively empty */
 .mtool-btn {
   padding: 0.32rem 0.65rem;
   background: var(--surface);
@@ -390,37 +360,7 @@ hr { border: none; border-top: 1px solid var(--border); }
   transition: all 0.15s;
 }
 
-.mtool-btn:hover { border-color: var(--error); color: var(--error); }
-.mtool-btn.active { border-color: var(--error); color: var(--error); background: var(--error-bg); }
-
-.brush-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  color: var(--muted);
-  flex: 1;
-}
-
-.brush-wrap input { width: 60px; accent-color: var(--error); }
-
-.mask-run {
-  width: 100%;
-  padding: 0.7rem;
-  background: transparent;
-  border: 1.5px solid var(--error);
-  border-radius: var(--r);
-  color: var(--error);
-  font-family: var(--sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mask-run:hover { background: var(--error-bg); }
-.mask-run:disabled { border-color: var(--border); color: var(--muted2); cursor: not-allowed; background: transparent; }
+.mtool-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ─── Loader ─── */
 .loader { display: none; align-items: center; gap: 0.6rem; }
@@ -771,6 +711,80 @@ table.cand-table { width: 100%; border-collapse: collapse; }
 
 .error-box strong { display: block; margin-bottom: 0.3rem; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; }
 
+/* ─── Forensic Supreme progress ─── */
+.supreme-progress {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.3s forwards;
+}
+
+.supreme-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.supreme-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.supreme-id {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted2);
+}
+
+.supreme-status {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.supreme-eta {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.supreme-track {
+  height: 9px;
+  background: var(--surface2);
+  border-radius: var(--rp);
+  overflow: hidden;
+  position: relative;
+}
+
+.supreme-fill {
+  height: 100%;
+  width: 28%;
+  min-width: 110px;
+  border-radius: var(--rp);
+  background: linear-gradient(90deg, var(--accent), var(--success), var(--accent));
+  background-size: 220% 100%;
+  animation: supremeMove 1.2s linear infinite;
+}
+
+@keyframes supremeMove {
+  from { background-position: 0 0; transform: translateX(-45%); }
+  to   { background-position: 220% 0; transform: translateX(360%); }
+}
+
+.supreme-note {
+  margin-top: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
@@ -850,7 +864,12 @@ table.cand-table { width: 100%; border-collapse: collapse; }
         <option value="assisted">Assisté — masque exact</option>
         <option value="blind_basic">Aveugle basique</option>
         <option value="blind_advanced">Aveugle avancé</option>
+        <option value="forensic_supreme">⚡ Forensic Supreme — qualité maximale</option>
       </select>
+      <div class="mode-help" id="supreme-help">
+        Toutes les stratégies testées sans limite de temps.<br>
+        Résultat disponible dans l'historique des analyses.
+      </div>
     </div>
 
     <div class="field">
@@ -866,34 +885,10 @@ table.cand-table { width: 100%; border-collapse: collapse; }
     <hr>
 
     <div>
-      <button class="mask-toggle" id="mask-toggle" onclick="toggleMaskMode()">
+      <button class="mask-toggle" id="mask-toggle" onclick="goToMaskEditor()">
         <span>✏</span>
         <span>Dessiner un masque manuellement</span>
       </button>
-
-      <div class="mask-panel" id="mask-panel" style="margin-top:0.75rem">
-        <div class="mask-hint">
-          Peignez la zone corrompue à reconstruire.
-        </div>
-        <div class="mask-canvas-wrap" id="mask-canvas-wrap">
-          <img id="mask-preview-img" alt="">
-          <canvas id="mask-canvas" width="400" height="200"></canvas>
-        </div>
-        <div class="mask-tools">
-          <button class="mtool-btn active" id="mbtn-brush"  onclick="setTool('brush')">Pinceau</button>
-          <button class="mtool-btn"        id="mbtn-eraser" onclick="setTool('eraser')">Gomme</button>
-          <button class="mtool-btn"                         onclick="clearMask()">Reset</button>
-          <div class="brush-wrap">
-            Taille
-            <input type="range" id="brush-sz" min="5" max="60" value="20"
-                   oninput="document.getElementById('bsz-val').textContent=this.value">
-            <span id="bsz-val">20</span>px
-          </div>
-        </div>
-        <button class="mask-run" id="mask-run-btn" disabled onclick="runWithMask()">
-          ▶ Reconstruire avec ce masque
-        </button>
-      </div>
     </div>
 
     <div class="loader" id="loader">
@@ -921,6 +916,16 @@ const API = 'http://localhost:8000';
 let selectedFile = null;
 let selectedCorruption = 'scratch_lines';
 let selectedSeverity = 'medium';
+let supremePollTimer = null;
+let supremeEtaTimer = null;
+let supremeState = null;
+
+const SUPREME_STRATEGIES = [
+  'inpainting_r3', 'inpainting_r5', 'inpainting_r7',
+  'patchmatch_p7_i5', 'patchmatch_p9_i5', 'patchmatch_p11_i7', 'patchmatch_p15_i20',
+  'denoise_median_blur', 'denoise_gaussian_blur', 'denoise_bilateral',
+  'deblur_light', 'deblur_strong', 'block_repair', 'hybrid_denoise_inpaint'
+];
 
 /* ── Health check ── */
 async function checkApi() {
@@ -956,17 +961,6 @@ function setFile(f) {
   dropzone.classList.add('has-file');
   document.getElementById('file-name').textContent = f.name;
   document.getElementById('run-btn').disabled = false;
-  document.getElementById('mask-run-btn').disabled = false;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = document.getElementById('mask-preview-img');
-    img.src = e.target.result;
-    const pic = new Image();
-    pic.onload = () => { maskNatW = pic.width; maskNatH = pic.height; };
-    pic.src = e.target.result;
-  };
-  reader.readAsDataURL(f);
 }
 
 /* ── Corruption buttons ── */
@@ -986,6 +980,16 @@ document.querySelectorAll('.sev-btn').forEach(btn => {
     btn.classList.add(`sev-${selectedSeverity}`);
   });
 });
+
+/* ── Execution mode help ── */
+const execModeSelect = document.getElementById('exec-mode');
+execModeSelect.addEventListener('change', updateExecutionModeHelp);
+updateExecutionModeHelp();
+
+function updateExecutionModeHelp() {
+  const isSupreme = execModeSelect.value === 'forensic_supreme';
+  document.getElementById('supreme-help').classList.toggle('on', isSupreme);
+}
 
 /* ── Loader ── */
 const LOADER_MSGS = [
@@ -1017,15 +1021,20 @@ function stopLoader() {
 document.getElementById('run-btn').addEventListener('click', async () => {
   if (!selectedFile) return;
   const btn = document.getElementById('run-btn');
+  const execMode = document.getElementById('exec-mode').value;
+  const isSupreme = execMode === 'forensic_supreme';
+  let keepDisabled = false;
+
+  clearSupremeTimers();
   btn.disabled = true;
-  startLoader();
-  setWS(`<div class="empty-state"><span class="es-icon">◈</span><div class="es-text">Analyse en cours…</div></div>`);
+  startLoader(isSupreme ? ['Envoi de l\'analyse…', 'Création de la tâche…', 'Préparation Forensic Supreme…'] : null);
+  setWS(`<div class="empty-state"><span class="es-icon">◈</span><div class="es-text">${isSupreme ? 'Création de l’analyse asynchrone…' : 'Analyse en cours…'}</div></div>`);
 
   const fd = new FormData();
   fd.append('image', selectedFile);
   fd.append('corruption_type', selectedCorruption);
   fd.append('severity', selectedSeverity);
-  fd.append('execution_mode', document.getElementById('exec-mode').value);
+  fd.append('execution_mode', execMode);
   fd.append('max_attempts', document.getElementById('max-attempts').value);
   fd.append('seed', '42');
 
@@ -1036,13 +1045,19 @@ document.getElementById('run-btn').addEventListener('click', async () => {
       const err = await r.json().catch(() => ({ detail: r.statusText }));
       showError(err.detail || 'Erreur inconnue');
     } else {
-      renderResults(await r.json());
+      const data = await r.json();
+      if (isSupreme && data.analysis_id) {
+        keepDisabled = true;
+        startSupremePolling(data.analysis_id, btn);
+      } else {
+        renderResults(data);
+      }
     }
   } catch (e) {
     stopLoader();
     showError('Impossible de contacter l\'API sur ' + API);
   } finally {
-    btn.disabled = false;
+    if (!keepDisabled) btn.disabled = false;
   }
 });
 
@@ -1051,6 +1066,286 @@ function showError(msg) { setWS(`<div class="error-box"><strong>// ERREUR</stron
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function scoreClass(v) { if (v>=80) return 'excellent'; if (v>=60) return 'good'; if (v>=40) return 'medium'; return 'poor'; }
 function tagClass(v)   { if (v>=70) return 'st-hi'; if (v>=40) return 'st-mid'; return 'st-lo'; }
+
+/* ── Forensic Supreme polling ── */
+function clearSupremeTimers() {
+  if (supremePollTimer) clearInterval(supremePollTimer);
+  if (supremeEtaTimer) clearInterval(supremeEtaTimer);
+  supremePollTimer = null;
+  supremeEtaTimer = null;
+  supremeState = null;
+}
+
+function renderSupremeProgress(analysisId) {
+  setWS(`<div class="supreme-progress">
+    <div class="supreme-head">
+      <div class="supreme-title">Forensic Supreme en cours</div>
+      <div class="supreme-id">analysis_id ${esc(analysisId)}</div>
+    </div>
+    <div class="supreme-status" id="supreme-status">Initialisation…</div>
+    <div class="supreme-eta" id="supreme-eta">Estimation du temps restant : calcul en cours…</div>
+    <div class="supreme-track"><div class="supreme-fill"></div></div>
+    <div class="supreme-note">
+      Polling toutes les 3 secondes. Le résultat complet sera affiché dès que l'analyse sera terminée.
+    </div>
+  </div>`);
+}
+
+function startSupremePolling(analysisId, runButton) {
+  stopLoader();
+  renderSupremeProgress(analysisId);
+  supremeState = {
+    analysisId,
+    startedAt: Date.now(),
+    lastStatus: 'pending',
+    observedCompletedCount: 0,
+    lastCompletedStrategy: null,
+    lastCompletedToken: null,
+    totalMs: SUPREME_STRATEGIES.length * 18000
+  };
+
+  const tickEta = () => updateSupremeProgressText(supremeState.lastPayload || {});
+  const poll = async () => {
+    try {
+      const r = await fetch(`${API}/analysis/${encodeURIComponent(analysisId)}/status`);
+      if (!r.ok) throw new Error(r.statusText || 'Statut indisponible');
+      const payload = await r.json();
+      supremeState.lastPayload = payload;
+      supremeState.lastStatus = payload.status || supremeState.lastStatus;
+      recordSupremeStatusPayload(payload);
+      updateSupremeProgressText(payload);
+
+      if (payload.status === 'completed') {
+        clearInterval(supremePollTimer);
+        clearInterval(supremeEtaTimer);
+        supremePollTimer = null;
+        supremeEtaTimer = null;
+        await loadSupremeResult(analysisId);
+        runButton.disabled = false;
+      } else if (payload.status === 'failed') {
+        clearSupremeTimers();
+        runButton.disabled = false;
+        showError(payload.error || 'Analyse Forensic Supreme échouée');
+      }
+    } catch (e) {
+      updateSupremeProgressText({ status: 'running', transient_error: e.message });
+    }
+  };
+
+  poll();
+  supremePollTimer = setInterval(poll, 3000);
+  supremeEtaTimer = setInterval(tickEta, 1000);
+}
+
+function recordSupremeStatusPayload(payload) {
+  if (!supremeState) return;
+  const progress = payload.progress || {};
+  const explicitDone = extractCompletedStrategiesCount(payload, progress);
+  const lastListedStrategy = extractLastCompletedStrategy(payload, progress);
+  const directLastStrategy = payload.last_strategy || progress.last_strategy || null;
+  if (explicitDone > 0) {
+    supremeState.observedCompletedCount = Math.max(supremeState.observedCompletedCount, explicitDone);
+  }
+  if (directLastStrategy || lastListedStrategy) {
+    supremeState.lastCompletedStrategy = directLastStrategy || lastListedStrategy;
+  }
+
+  const phase = payload.phase || progress.phase || '';
+  if (phase !== 'strategy_completed') return;
+
+  const completedStrategy =
+    payload.strategy || progress.strategy ||
+    payload.current_strategy || progress.current_strategy || null;
+  const token = completedStrategy || `${Date.now()}`;
+  if (completedStrategy) {
+    supremeState.lastCompletedStrategy = completedStrategy;
+  }
+  if (token !== supremeState.lastCompletedToken) {
+    supremeState.lastCompletedToken = token;
+    if (explicitDone <= 0) {
+      supremeState.observedCompletedCount += 1;
+    }
+  }
+}
+
+function updateSupremeProgressText(payload) {
+  if (!supremeState) return;
+  const progress = payload.progress || {};
+  const explicitDone = extractCompletedStrategiesCount(payload, progress);
+  const strategiesDone = Math.max(explicitDone, supremeState.observedCompletedCount || 0);
+  const strategiesTotal = extractProgressNumber(payload, progress, [
+    'strategies_total', 'total_strategies', 'strategy_count'
+  ]) || SUPREME_STRATEGIES.length;
+  const idx = Math.min(
+    strategiesTotal - 1,
+    Math.max(0, strategiesDone > 0 ? strategiesDone - 1 : 0)
+  );
+  const phase = payload.phase || progress.phase || '';
+  const currentStrategy =
+    payload.current_strategy || progress.current_strategy ||
+    payload.last_strategy || progress.last_strategy || null;
+  const eventStrategy = payload.strategy || progress.strategy || null;
+  const strategyFromApi =
+    currentStrategy ||
+    (phase === 'strategy_completed' || phase === 'strategy_failed' ? eventStrategy : null) ||
+    payload.selected_repair_strategy || null;
+  const strategy = strategyFromApi || SUPREME_STRATEGIES[Math.min(idx, SUPREME_STRATEGIES.length - 1)] || 'stratégie en cours';
+  const status = payload.status || 'running';
+  const processingTime = extractProgressNumber(payload, progress, [
+    'processing_time_s', 'elapsed_s', 'elapsed_seconds'
+  ]);
+  const rollingEstimate = estimateFromRecentStrategies(payload, progress);
+  const strategiesRemaining = Math.max(0, strategiesTotal - strategiesDone);
+  const isTerminal = status === 'completed' || status === 'failed';
+  const currentPosition = Math.min(strategiesDone + 1, strategiesTotal);
+  const completedPosition = Math.min(Math.max(strategiesDone, 1), strategiesTotal);
+  const completedStrategy = supremeState.lastCompletedStrategy || eventStrategy || strategy;
+  const failedStrategy =
+    payload.current_strategy || payload.strategy ||
+    progress.current_strategy || progress.strategy ||
+    `${currentPosition}/${strategiesTotal}`;
+  const statusText = phase === 'strategy_failed'
+    ? `Stratégie ${failedStrategy} échouée, passage à la suivante...`
+    : phase === 'strategy_running'
+      ? `Stratégie ${currentPosition}/${strategiesTotal} — ${strategy} en cours...`
+    : phase === 'strategy_completed'
+      ? `Stratégie ${completedPosition}/${strategiesTotal} — ${completedStrategy} ✓`
+    : status === 'pending'
+      ? `En attente — ${strategy}...`
+      : `Stratégie ${currentPosition}/${strategiesTotal} — ${strategy}...`;
+  const suffix = payload.transient_error ? ` · reconnexion (${esc(payload.transient_error)})` : '';
+
+  const statusEl = document.getElementById('supreme-status');
+  const etaEl = document.getElementById('supreme-eta');
+  if (statusEl) statusEl.textContent = statusText + suffix;
+  if (etaEl) {
+    etaEl.style.display = isTerminal ? 'none' : '';
+    if (isTerminal) {
+      etaEl.textContent = '';
+    } else if (phase === 'strategy_running') {
+      etaEl.textContent = `Temps sur cette stratégie : ${formatDuration(processingTime * 1000)}`;
+    } else if (strategiesDone > 0 && processingTime / strategiesDone > 10) {
+      etaEl.textContent = "Analyse longue en cours — résultat disponible dans l'historique";
+    } else if (strategiesDone < 5 || rollingEstimate.mean <= 0) {
+      etaEl.textContent = 'Estimation en cours...';
+    } else {
+      const remainingSeconds = rollingEstimate.mean * strategiesRemaining;
+      const minRemaining = rollingEstimate.min * strategiesRemaining;
+      const maxRemaining = rollingEstimate.max * strategiesRemaining;
+      etaEl.textContent = rollingEstimate.highVariance && maxRemaining > minRemaining
+        ? `~${formatMinutes(minRemaining)} – ${formatMinutes(maxRemaining)} restants`
+        : remainingSeconds > 0
+        ? `Temps restant estimé : ${formatDuration(remainingSeconds * 1000)}`
+        : `Temps écoulé : ${formatDuration(Date.now() - supremeState.startedAt)}`;
+    }
+  }
+}
+
+function extractCompletedStrategiesCount(payload, progress) {
+  const list = payload.strategies_completed ?? payload.completed_strategies ??
+    progress.strategies_completed ?? progress.completed_strategies;
+  if (Array.isArray(list)) return list.length;
+  return extractProgressNumber(payload, progress, [
+    'strategies_done', 'completed_strategies', 'strategies_completed',
+    'completed_count', 'current_strategy_index'
+  ]);
+}
+
+function extractLastCompletedStrategy(payload, progress) {
+  const events = extractCompletedStrategyEvents(payload, progress);
+  if (events.length > 0) {
+    const lastEvent = events[events.length - 1];
+    return lastEvent.strategy || lastEvent.current_strategy || lastEvent.name || null;
+  }
+  const list = payload.strategies_completed ?? payload.completed_strategies ??
+    progress.strategies_completed ?? progress.completed_strategies;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const last = list[list.length - 1];
+  if (typeof last === 'string') return last;
+  return last.strategy || last.current_strategy || last.name || null;
+}
+
+function extractCompletedStrategyEvents(payload, progress) {
+  const events = payload.strategy_completed_events ?? progress.strategy_completed_events;
+  return Array.isArray(events) ? events : [];
+}
+
+function estimateFromRecentStrategies(payload, progress) {
+  const events = extractCompletedStrategyEvents(payload, progress)
+    .map(event => Number(event.elapsed_s ?? event.processing_time_s ?? event.elapsed_seconds))
+    .filter(value => Number.isFinite(value) && value >= 0);
+  const empty = { mean: 0, min: 0, max: 0, highVariance: false };
+  if (events.length < 5) return empty;
+
+  const durations = [];
+  for (let i = 1; i < events.length; i++) {
+    const duration = events[i] - events[i - 1];
+    if (Number.isFinite(duration) && duration > 0) durations.push(duration);
+  }
+  const recent = durations.slice(-3);
+  if (recent.length === 0) return empty;
+  const mean = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+  const min = Math.min(...recent);
+  const max = Math.max(...recent);
+  const highVariance = min > 0 && max / min >= 3;
+  return { mean, min, max, highVariance };
+}
+
+function extractProgressNumber(payload, progress, keys) {
+  for (const key of keys) {
+    const raw = payload[key] ?? progress[key];
+    const value = Number(raw);
+    if (Number.isFinite(value)) return Math.max(0, value);
+  }
+  return 0;
+}
+
+async function loadSupremeResult(analysisId) {
+  const statusEl = document.getElementById('supreme-status');
+  const etaEl = document.getElementById('supreme-eta');
+  if (statusEl) statusEl.textContent = 'Analyse terminée — chargement du résultat…';
+  if (etaEl) etaEl.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/analysis/${encodeURIComponent(analysisId)}/result`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      showError(err.detail || 'Résultat indisponible');
+      return;
+    }
+    renderResults(normalizeSupremeResult(await r.json()));
+  } catch {
+    showError('Résultat Forensic Supreme indisponible pour le moment');
+  }
+}
+
+function normalizeSupremeResult(payload) {
+  const body = payload || {};
+  const wrapped = body.result || body;
+  const request = body.request || wrapped.request || {};
+  return {
+    ...wrapped,
+    status: wrapped.status || body.status || 'completed',
+    score: wrapped.score ?? wrapped.repair_score ?? 0,
+    selected_repair_strategy: wrapped.selected_repair_strategy || '',
+    candidates: wrapped.candidates || wrapped.repair_candidates || [],
+    corruption_type: request.corruption_type || wrapped.corruption_type || selectedCorruption,
+    original_image: wrapped.original_image,
+    corrupted_image: wrapped.corrupted_image,
+    reconstructed_image: wrapped.reconstructed_image,
+  };
+}
+
+function formatDuration(ms) {
+  const total = Math.ceil(ms / 1000);
+  const min = Math.floor(total / 60);
+  const sec = total % 60;
+  return min > 0 ? `${min}m ${String(sec).padStart(2, '0')}s` : `${sec}s`;
+}
+
+function formatMinutes(seconds) {
+  return `${Math.max(1, Math.ceil(seconds / 60))}min`;
+}
 
 /* ── Score ring ── */
 function renderRing(score, cls) {
@@ -1129,6 +1424,9 @@ function renderResults(data) {
   const runIdM   = (data.report_path||'').match(/report_([a-f0-9]+)\.json/);
   const runId    = runIdM ? runIdM[1] : null;
 
+  lastCorruptedPath = data.corrupted_image;
+  lastOriginalPath  = data.original_image;
+
   const origUrl  = `${API}/files/serve?path=${encodeURIComponent(data.original_image)}`;
   const corrUrl  = `${API}/files/serve?path=${encodeURIComponent(data.corrupted_image)}`;
   const reconUrl = `${API}/files/serve?path=${encodeURIComponent(data.reconstructed_image)}`;
@@ -1170,9 +1468,9 @@ function renderResults(data) {
   </div>`;
 
   const breakdown  = renderBreakdown(data);
-  const editorUrl  = `mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}`;
+  const editorUrl  = `mask_editor.html?corrupted_path=${encodeURIComponent(data.corrupted_image)}&original_path=${encodeURIComponent(data.original_image)}`;
   const actionBar  = `<div class="action-bar">
-    <a class="act-btn" href="${editorUrl}" target="_blank">✏ Éditeur de masque</a>
+    <a class="act-btn" href="${editorUrl}">✏ Éditeur de masque</a>
     ${runId ? `<a class="act-btn teal" href="${API}/reports/pdf/${runId}" target="_blank" download>↓ PDF</a>` : ''}
     ${runId ? `<a class="act-btn" href="${API}/reports/html/${runId}" target="_blank">⊞ HTML</a>` : ''}
   </div>`;
@@ -1207,121 +1505,17 @@ function renderResults(data) {
   }));
 }
 
-/* ── Mask mode ── */
-let maskNatW = 0, maskNatH = 0;
-let maskTool = 'brush', maskPainting = false;
+/* ── Mask editor redirect ── */
+let lastCorruptedPath = null;
+let lastOriginalPath  = null;
 
-function toggleMaskMode() {
-  const panel = document.getElementById('mask-panel');
-  const btn   = document.getElementById('mask-toggle');
-  const show  = !panel.classList.contains('visible');
-  panel.classList.toggle('visible', show);
-  btn.classList.toggle('active', show);
-}
-
-const maskCanvas = document.getElementById('mask-canvas');
-const maskCtx    = maskCanvas.getContext('2d');
-
-maskCanvas.addEventListener('mousedown',  e => { maskPainting=true; maskDraw(e); });
-maskCanvas.addEventListener('mousemove',  maskDraw);
-maskCanvas.addEventListener('mouseup',    () => { maskPainting=false; });
-maskCanvas.addEventListener('mouseleave', () => { maskPainting=false; });
-maskCanvas.addEventListener('touchstart', e => { maskPainting=true; maskDraw(e); }, {passive:false});
-maskCanvas.addEventListener('touchmove',  maskDraw, {passive:false});
-maskCanvas.addEventListener('touchend',   () => { maskPainting=false; });
-
-function maskGetPos(e) {
-  const r = maskCanvas.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
-  return {
-    x: (t.clientX-r.left)*(maskCanvas.width/r.width),
-    y: (t.clientY-r.top)*(maskCanvas.height/r.height),
-  };
-}
-
-function maskDraw(e) {
-  if (!maskPainting) return;
-  e.preventDefault();
-  const {x,y} = maskGetPos(e);
-  const sz = parseInt(document.getElementById('brush-sz').value);
-  maskCtx.globalCompositeOperation = maskTool==='eraser' ? 'destination-out' : 'source-over';
-  maskCtx.fillStyle = 'rgba(13,148,136,0.55)';
-  maskCtx.beginPath();
-  maskCtx.arc(x, y, sz/2, 0, Math.PI*2);
-  maskCtx.fill();
-}
-
-function setTool(t) {
-  maskTool = t;
-  document.getElementById('mbtn-brush').classList.toggle('active', t==='brush');
-  document.getElementById('mbtn-eraser').classList.toggle('active', t==='eraser');
-}
-
-function clearMask() { maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height); }
-
-/* Masque binaire aux dimensions réelles — imageSmoothingEnabled=false obligatoire */
-function buildBinaryMask() {
-  const tmp = document.createElement('canvas');
-  tmp.width=maskCanvas.width; tmp.height=maskCanvas.height;
-  const ctx=tmp.getContext('2d');
-  ctx.fillStyle='black';
-  ctx.fillRect(0,0,tmp.width,tmp.height);
-
-  const src=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
-  const dst=ctx.getImageData(0,0,tmp.width,tmp.height);
-  for (let i=0;i<src.data.length;i+=4) {
-    if (src.data[i+3]>10) {
-      dst.data[i]=255; dst.data[i+1]=255; dst.data[i+2]=255; dst.data[i+3]=255;
-    }
-  }
-  ctx.putImageData(dst,0,0);
-
-  if (maskNatW>0 && maskNatH>0 && (tmp.width!==maskNatW||tmp.height!==maskNatH)) {
-    const real=document.createElement('canvas');
-    real.width=maskNatW; real.height=maskNatH;
-    const rctx=real.getContext('2d');
-    rctx.imageSmoothingEnabled=false;
-    rctx.drawImage(tmp,0,0,maskNatW,maskNatH);
-    return real;
-  }
-  return tmp;
-}
-
-const MASK_MSGS = [
-  'Préparation du masque…','Envoi au serveur…','Inpainting r3…','Inpainting r5…',
-  'Débruitage médian…','Bilatéral…','Hybride…','Calcul des scores…','Sélection…',
-];
-
-async function runWithMask() {
-  if (!selectedFile) return;
-  const px=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height).data;
-  let w=0; for (let i=3;i<px.length;i+=4) if (px[i]>10) w++;
-  if (w===0) { alert('Le masque est vide — peignez la zone à reconstruire.'); return; }
-
-  const btn=document.getElementById('mask-run-btn');
-  btn.disabled=true;
-  startLoader(MASK_MSGS);
-
-  const maskBlob=await new Promise(res=>buildBinaryMask().toBlob(res,'image/png'));
-  const fd=new FormData();
-  fd.append('image',selectedFile,selectedFile.name);
-  fd.append('mask',maskBlob,'mask.png');
-  fd.append('max_attempts',document.getElementById('max-attempts').value);
-
-  try {
-    const r=await fetch(`${API}/reconstruction/repair-with-mask`,{method:'POST',body:fd});
-    stopLoader();
-    if (!r.ok) {
-      const err=await r.json().catch(()=>({detail:r.statusText}));
-      showError(err.detail||'Erreur inconnue');
-    } else {
-      renderResults(await r.json());
-    }
-  } catch (e) {
-    stopLoader();
-    showError('Impossible de contacter l\'API sur '+API);
-  } finally {
-    btn.disabled=false;
+function goToMaskEditor() {
+  if (lastCorruptedPath) {
+    let url = `mask_editor.html?corrupted_path=${encodeURIComponent(lastCorruptedPath)}`;
+    if (lastOriginalPath) url += `&original_path=${encodeURIComponent(lastOriginalPath)}`;
+    window.location.href = url;
+  } else {
+    window.location.href = 'mask_editor.html';
   }
 }
 </script>

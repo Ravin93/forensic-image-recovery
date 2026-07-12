@@ -4,10 +4,12 @@ import pytest
 from PIL import Image
 
 from app.core.exceptions import CarvingError
-from app.modules.carving.extractor import extract_jpegs_from_dump
+from app.modules.carving.extractor import extract_jpegs_from_dump, extract_pngs_from_dump
 from app.modules.carving.jpeg_scanner import (
     scan_jpeg_offsets,
     scan_jpeg_offsets_from_bytes,
+    scan_png_offsets,
+    scan_png_offsets_from_bytes,
 )
 from app.modules.carving.signature import (
     find_all_jpeg_starts,
@@ -65,6 +67,25 @@ def test_scan_jpeg_offsets_missing_file():
         scan_jpeg_offsets("missing_dump.bin")
 
 
+def test_scan_png_offsets_from_bytes():
+    signature = b"\x89PNG\r\n\x1a\n"
+    content = b"\x00" + signature + b"\x11\x22" + signature
+    assert scan_png_offsets_from_bytes(content) == [1, 11]
+
+
+def test_scan_png_offsets_file(tmp_path: Path):
+    signature = b"\x89PNG\r\n\x1a\n"
+    dump_path = tmp_path / "dump.bin"
+    dump_path.write_bytes(b"\x00" + signature + b"\x11\x22" + signature)
+
+    assert scan_png_offsets(dump_path) == [1, 11]
+
+
+def test_scan_png_offsets_missing_file():
+    with pytest.raises(CarvingError):
+        scan_png_offsets("missing_dump.bin")
+
+
 def test_extract_simple_jpeg_from_dump(tmp_path: Path):
     image_path = tmp_path / "sample.jpg"
     Image.new("RGB", (64, 64), color="red").save(image_path, format="JPEG")
@@ -102,3 +123,29 @@ def test_extract_dump_with_soi_but_no_eoi(tmp_path: Path):
 def test_extract_missing_dump():
     with pytest.raises(CarvingError):
         extract_jpegs_from_dump("missing_dump.bin")
+
+
+def test_extract_simple_png_from_dump(tmp_path: Path):
+    image_path = tmp_path / "sample.png"
+    Image.new("RGB", (64, 64), color="blue").save(image_path, format="PNG")
+    png_bytes = image_path.read_bytes()
+
+    dump_path = tmp_path / "dump.bin"
+    dump_path.write_bytes(b"\x00\x01\x02" + png_bytes + b"\x99\x88")
+
+    extracted = extract_pngs_from_dump(dump_path)
+
+    assert len(extracted) >= 1
+    assert extracted[0]["status"] == "extracted"
+    assert extracted[0]["source_dump"] == "dump.bin"
+    assert extracted[0]["format"] == "png"
+    assert extracted[0]["start_offset"] >= 0
+    assert extracted[0]["end_offset_exclusive"] > extracted[0]["start_offset"]
+    assert Path(extracted[0]["path"]).exists()
+
+
+def test_extract_dump_with_png_signature_but_no_iend(tmp_path: Path):
+    dump_path = tmp_path / "dump.bin"
+    dump_path.write_bytes(b"\x89PNG\r\n\x1a\n\x11\x22\x33\x44")
+
+    assert extract_pngs_from_dump(dump_path) == []

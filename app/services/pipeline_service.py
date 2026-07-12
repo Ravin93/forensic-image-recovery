@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from PIL import Image
@@ -33,6 +33,7 @@ def run_demo_pipeline(
     detection_mode: str = "basic",
     max_attempts: int = 8,
     randomize: bool = False,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Pipeline complet : corruption → détection → reconstruction multi-essais → scoring.
 
@@ -97,9 +98,20 @@ def run_demo_pipeline(
     corruption_classification = None
     detection_confidence = 0.0
 
+    forensic_supreme = execution_mode == "forensic_supreme"
+
     if execution_mode == "assisted":
         detected_mask_path = true_mask_path
         detection_confidence = 1.0
+
+    elif forensic_supreme:
+        detected_mask_path = true_mask_path
+        detection_confidence = 1.0
+        corruption_classification = {
+            "corruption_type": corruption_type,
+            "confidence": 1.0,
+            "source": "forensic_supreme",
+        }
 
     elif execution_mode == "blind_basic":
         detected_mask = detect_dark_regions_mask(corruption_result["path"])
@@ -163,6 +175,8 @@ def run_demo_pipeline(
         detection_confidence=detection_confidence,
         original_image_path=source_image_path,
         max_attempts=max_attempts,
+        forensic_supreme=forensic_supreme,
+        progress_callback=progress_callback,
     )
 
     # ------------------------------------------------------------------
@@ -194,7 +208,8 @@ def run_demo_pipeline(
             "selected_repair_strategy": reconstruction_result.get("selected_repair_strategy"),
             "recoverability_status": recoverability_status,
             "detection_confidence": detection_confidence,
-            "max_attempts": max_attempts,
+            "max_attempts": None if forensic_supreme else max_attempts,
+            "forensic_supreme": forensic_supreme,
         },
     )
     report_path = save_json_report(report)
@@ -233,8 +248,9 @@ def run_demo_pipeline(
         "detection_confidence": detection_confidence,
         "mode": {
             "seed":              seed,
-            "max_attempts":      max_attempts,
+            "max_attempts":      None if forensic_supreme else max_attempts,
             "corruption_level":  corruption_level,
             "corruption_profile": profile,
+            "forensic_supreme":  forensic_supreme,
         },
     }

@@ -483,6 +483,108 @@ hr { border: none; border-top: 1px solid var(--border); }
 }
 .iter-secondary:hover { background: var(--accent); color: #fff; }
 
+/* ─── Compare banner ─── */
+.compare-banner {
+  border-radius: var(--rs);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.compare-banner.user-wins { background: rgba(77,124,95,.12); border: 1px solid var(--success); color: var(--success); }
+.compare-banner.auto-wins { background: var(--accent-bg);    border: 1px solid var(--accent);  color: var(--accent-dk); }
+.compare-note { font-size: 0.62rem; font-weight: 400; opacity: 0.85; }
+
+/* ─── Compare columns ─── */
+.compare-col {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.compare-col.winner { border-color: var(--success); opacity: 1; }
+.compare-col img { width: 100%; display: block; min-height: 60px; object-fit: cover; background: var(--surface2); }
+
+.compare-col-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Coverage bar ─── */
+.coverage-bar-wrap {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  padding: 0.65rem 0.75rem;
+}
+.coverage-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.coverage-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.coverage-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.coverage-hint {
+  font-size: 0.58rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+  opacity: 0.8;
+}
+
+.compare-section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+
+.compare-col-mask-label {
+  font-size: 0.58rem;
+  color: var(--muted);
+  padding: 0.25rem 0.65rem 0;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compare-col-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.62rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+}
+.compare-score-val { font-family: var(--mono); font-weight: 700; font-size: 0.78rem; }
+
 /* ─── Responsive ─── */
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 200px 1fr 240px; }
@@ -623,6 +725,9 @@ let imgNatW  = 0, imgNatH = 0;
 let overlayOpacity = 0.5;
 let preloadedPath  = null;
 let lastReconPath  = null;
+let preloadedPath    = null;
+let preloadedOrigPath = null;
+let lastReconPath    = null;
 
 const canvasImg  = document.getElementById('canvas-image');
 const canvasMask = document.getElementById('canvas-mask');
@@ -688,7 +793,8 @@ function resizeCanvases() {
   const path = params.get('corrupted_path');
   if (!path) return;
 
-  preloadedPath = path;
+  preloadedPath     = path;
+  preloadedOrigPath = params.get('original_path') || null;
   const url = `${API}/files/serve?path=${encodeURIComponent(path)}`;
   const fname = path.split('/').pop();
 
@@ -884,12 +990,13 @@ async function runRepair() {
   }
 
   const fd = new FormData();
-  fd.append('image', imageBlob, imgFile.name || 'image.jpg');
-  fd.append('mask',  maskBlob,  'mask.png');
+  fd.append('image',     imageBlob, imgFile.name || 'image.jpg');
+  fd.append('user_mask', maskBlob,  'mask.png');
   fd.append('max_attempts', document.getElementById('max-attempts').value);
+  if (preloadedOrigPath) fd.append('original_image_path', preloadedOrigPath);
 
   try {
-    const resp = await fetch(`${API}/reconstruction/repair-with-mask`, { method: 'POST', body: fd });
+    const resp = await fetch(`${API}/reconstruction/compare-masks`, { method: 'POST', body: fd });
     stopLoader();
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: resp.statusText }));
@@ -927,6 +1034,12 @@ function showError(msg) {
     `<div class="error-box"><strong style="display:block;margin-bottom:.3rem;letter-spacing:.04em">Erreur</strong>${esc(msg)}</div>`;
 }
 
+function coverageColor(pct) {
+  if (pct >= 80) return 'var(--success)';
+  if (pct >= 50) return 'var(--warn)';
+  return 'var(--error)';
+}
+
 function renderResults(data) {
   lastReconPath   = data.reconstructed_image;
   const score    = parseFloat(data.score || 0).toFixed(1);
@@ -941,22 +1054,83 @@ function renderResults(data) {
     return `<div class="cand-row ${isBest ? 'best' : ''}">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${isBest ? '▶ ' : ''}${esc(c.strategy)}</span>
       <span class="cand-score" style="${scoreTagCls(parseFloat(s))}">${s}</span>
+  lastReconPath = data.reconstructed_image;
+
+  const winner      = data.winner || 'user_mask';
+  const note        = data.comparison_note || '';
+  const coveragePct = data.coverage_ratio != null ? Math.round(data.coverage_ratio * 100) : null;
+  const ud          = data.user_mask || {};
+  const ad          = data.auto_mask || {};
+
+  const userScore    = parseFloat(ud.score ?? 0).toFixed(1);
+  const autoScore    = parseFloat(ad.score ?? 0).toFixed(1);
+  const userStrategy = ud.selected_repair_strategy || '—';
+  const autoStrategy = ad.selected_repair_strategy || '—';
+
+  const userReconUrl = ud.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.reconstructed_image)}` : '';
+  const autoReconUrl = ad.reconstructed_image
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.reconstructed_image)}` : '';
+  const userMaskUrl = ud.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ud.mask_path)}` : '';
+  const autoMaskUrl = ad.mask_path
+    ? `${API}/files/serve?path=${encodeURIComponent(ad.mask_path)}` : '';
+
+  const bestScore    = parseFloat(data.score || 0).toFixed(1);
+  const bestStrategy = data.selected_repair_strategy || '—';
+  const retries      = (winner === 'user_mask' ? ud.retry_count : ad.retry_count) ?? 0;
+
+  const bannerCls   = winner === 'user_mask' ? 'user-wins' : 'auto-wins';
+  const bannerTitle = winner === 'user_mask' ? '✓ Votre masque est meilleur' : '⚡ Détection auto est meilleure';
+
+  const userWins = winner === 'user_mask';
+  const autoWins = winner === 'auto_mask';
+
+  const colImg = (reconUrl, maskUrl, score, strategy, wins) => `
+    <div class="compare-col ${wins ? 'winner' : ''}">
+      <div class="compare-col-head">
+        <span class="rdot" style="background:${wins ? 'var(--success)' : 'var(--muted)'}"></span>
+        ${wins ? '★ ' : ''}Résultat reconstruit
+      </div>
+      ${reconUrl ? `<img src="${reconUrl}" alt="" onerror="this.style.opacity=.3">` : '<div style="height:60px;background:var(--surface2)"></div>'}
+      <div class="compare-col-foot">
+        <span class="compare-score-val" style="color:${scoreColor(parseFloat(score))}">${score}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px;font-size:.6rem">${esc(strategy)}</span>
+      </div>
+      ${maskUrl ? `
+      <div class="compare-col-mask-label">Masque utilisé</div>
+      <img src="${maskUrl}" alt="Masque" style="width:100%;display:block;min-height:40px;object-fit:cover;background:var(--surface2)" onerror="this.style.opacity=.3">
+      ` : ''}
     </div>`;
-  }).join('');
 
   document.getElementById('results-content').innerHTML = `
-    <div class="result-img">
-      <div class="result-img-head"><span class="rdot" style="background:var(--success)"></span>Image reconstruite</div>
-      <img src="${reconUrl}" alt="Reconstruite" onerror="this.style.opacity=.3">
+    <div class="compare-banner ${bannerCls}">
+      <span>${bannerTitle}</span>
+      <span class="compare-note">${esc(note)}</span>
     </div>
-    <div class="result-img">
-      <div class="result-img-head"><span class="rdot" style="background:var(--muted)"></span>Masque utilisé</div>
-      <img src="${maskUrl}" alt="Masque" onerror="this.style.opacity=.3">
-    </div>
+
+    ${coveragePct != null ? `
+    <div class="coverage-bar-wrap">
+      <div class="coverage-bar-label">
+        <span>Couverture de la corruption</span>
+        <span style="font-weight:700;color:${coverageColor(coveragePct)}">${coveragePct}%</span>
+      </div>
+      <div class="coverage-track">
+        <div class="coverage-fill" style="width:${coveragePct}%;background:${coverageColor(coveragePct)}"></div>
+      </div>
+      <div class="coverage-hint">Portion de la zone corrompue couverte par votre masque</div>
+    </div>` : ''}
+
+    <div class="compare-section-label">Votre masque</div>
+    ${colImg(userReconUrl, userMaskUrl, userScore, userStrategy, userWins)}
+
+    <div class="compare-section-label">Détection automatique</div>
+    ${colImg(autoReconUrl, autoMaskUrl, autoScore, autoStrategy, autoWins)}
+
     <div class="score-card">
-      <div class="score-val" style="color:${scoreColor(parseFloat(score))}">${score}<span style="font-size:1rem;opacity:.4">/100</span></div>
-      <div class="score-lbl">Score global</div>
-      <div class="strategy-badge">${esc(strategy)}</div>
+      <div class="score-val" style="color:${scoreColor(parseFloat(bestScore))}">${bestScore}<span style="font-size:1rem;opacity:.4">/100</span></div>
+      <div class="score-lbl">Meilleur score</div>
+      <div class="strategy-badge">${esc(bestStrategy)}</div>
       <div class="score-detail">${retries} stratégie(s) testée(s)</div>
     </div>
     <div>
@@ -968,6 +1142,12 @@ function renderResults(data) {
         ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
       </button>
       <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge — redessinez une zone différente">
+
+    <div class="iter-row">
+      <button class="iter-btn iter-primary" onclick="rerunWithSameMask()" title="Charge ce résultat comme nouvelle source en conservant votre masque">
+        ↺ Même masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
+      </button>
+      <button class="iter-btn iter-secondary" onclick="useResultAsSource()" title="Charge ce résultat comme nouvelle source avec masque vierge">
         ↩ Nouveau masque<br><span style="font-weight:400;font-size:.62rem;opacity:.85">sur ce résultat</span>
       </button>
     </div>`;

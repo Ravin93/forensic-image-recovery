@@ -2,7 +2,7 @@
 
 > Système forensique de reconstruction d'images corrompues — ESGI Projet Annuel 2026
 >
-> **Ravin THILAGARASA & Richard PAMPANA** — Cybersécurité 4ème année
+> **Ravin THILAGARASA** — Cybersécurité 4ème année
 
 [![Tests](https://img.shields.io/badge/tests-398%20passed-brightgreen)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://python.org)
@@ -400,10 +400,9 @@ LAMA_ENABLED=true uvicorn app.main:app --reload
 
 ---
 
-## Auteurs
+## Auteur
 
 - **Ravin THILAGARASA**
-- **Richard PAMPANA**
 
 Projet Annuel ESGI 4ème année — Cybersécurité — 2025/2026
 
@@ -411,4 +410,4 @@ Projet Annuel ESGI 4ème année — Cybersécurité — 2025/2026
 
 ## Avertissement forensique
 
-Les reconstructions produites par ce système constituent des **hypothèses visuelles algorithmiques** et ne sauraient constituer des preuves judiciaires. Toute utilisation dans un contexte légal nécessite la validation d'un expert forensique habilité.
+Les reconstructions produites par ce système constituent des **hypothèses visuelles algorithmiques** et ne sauraient constituer des preuves judiciaires.

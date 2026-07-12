@@ -69,6 +69,44 @@ def update_status(
     return current
 
 
+def update_progress(
+    analysis_id: str,
+    extra: dict[str, Any],
+) -> dict[str, Any]:
+    """Met à jour les champs de progression sans changer le statut courant."""
+    current = get_status(analysis_id)
+    current["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    current.update(extra)
+    _write_status(analysis_id, current)
+    return current
+
+
+def record_strategy_completed(
+    analysis_id: str,
+    strategy: str,
+    score: float | None,
+    elapsed_s: float,
+) -> dict[str, Any]:
+    """Ajoute une stratégie complétée au status.json d'une analyse."""
+    current = get_status(analysis_id)
+    history = list(current.get("strategy_completed_events") or [])
+    event = {
+        "phase": "strategy_completed",
+        "strategy": strategy,
+        "score": score,
+        "elapsed_s": elapsed_s,
+    }
+    history.append(event)
+    current["strategy_completed_events"] = history
+    current["strategies_completed"] = len(history)
+    current["last_strategy"] = strategy
+    current["last_score"] = score
+    current["elapsed_s"] = elapsed_s
+    current["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    _write_status(analysis_id, current)
+    return current
+
+
 def get_status(analysis_id: str) -> dict[str, Any]:
     """Retourne le statut courant d'une analyse."""
     path = analysis_dir(analysis_id) / "status.json"

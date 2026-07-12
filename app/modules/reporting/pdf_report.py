@@ -38,15 +38,17 @@ from app.core.logger import logger
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
-_BG       = colors.HexColor("#0a0a0f")
-_SURFACE  = colors.HexColor("#111118")
-_ACCENT   = colors.HexColor("#00e5ff")
-_ACCENT2  = colors.HexColor("#ff3d71")
-_ACCENT3  = colors.HexColor("#a259ff")
-_SUCCESS  = colors.HexColor("#00e096")
-_TEXT     = colors.HexColor("#e8e8f0")
-_MUTED    = colors.HexColor("#6b6b80")
-_BORDER   = colors.HexColor("#2a2a3a")
+_BG       = colors.HexColor("#f5f0e8")
+_SURFACE  = colors.HexColor("#edeae3")
+_SURFACE2 = colors.HexColor("#e4e0d8")
+_BORDER   = colors.HexColor("#cfc9be")
+_TEXT     = colors.HexColor("#1e1c18")
+_MUTED    = colors.HexColor("#6b6358")
+_ACCENT   = colors.HexColor("#0d9488")
+_ACCENT_DK = colors.HexColor("#0f766e")
+_SUCCESS  = colors.HexColor("#4d7c5f")
+_ERROR    = colors.HexColor("#9b4444")
+_WARN     = colors.HexColor("#7d6b2f")
 _WHITE    = colors.white
 _BLACK    = colors.black
 
@@ -173,8 +175,8 @@ def _score_color(score: float) -> colors.Color:
     if score >= 60:
         return _ACCENT
     if score >= 40:
-        return colors.HexColor("#ffaa00")
-    return _ACCENT2
+        return _WARN
+    return _ERROR
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +252,7 @@ def _build_images_section(story: list, report: dict, styles: dict, page_w: float
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("TOPPADDING",    (0, 0), (-1, -1), 4),
         ("BOX",         (0, 0), (0, 0), 0.5, _ACCENT),
-        ("BOX",         (1, 0), (1, 0), 0.5, _ACCENT2),
+        ("BOX",         (1, 0), (1, 0), 0.5, _WARN),
         ("BOX",         (2, 0), (2, 0), 0.5, _MUTED),
         ("BOX",         (3, 0), (3, 0), 0.5, _SUCCESS),
     ]))
@@ -299,14 +301,14 @@ def _build_reconstruction_section(story: list, report: dict, styles: dict) -> No
     # Score + stratégie dans un tableau pour éviter le chevauchement
     sc_table = Table(
         [[
-            Paragraph(f"{score:.1f}<font size='14' color='#6b6b80'>/100</font>",
+            Paragraph(f"{score:.1f}<font size='14' color='#6b6358'>/100</font>",
                       ParagraphStyle("scn", fontName="Helvetica-Bold", fontSize=28,
                                      textColor=sc, alignment=TA_RIGHT, spaceAfter=0)),
             Paragraph(
-                f"<font color='#6b6b80' size='7'>STRATÉGIE SÉLECTIONNÉE</font><br/>"
+                f"<font color='#6b6358' size='7'>STRATÉGIE SÉLECTIONNÉE</font><br/>"
                 f"{best.get('strategy') or recon.get('selected_strategy') or '—'}",
                 ParagraphStyle("sc2", fontName="Courier", fontSize=9,
-                               textColor=_ACCENT3, alignment=TA_LEFT, spaceAfter=0, leading=14)),
+                               textColor=_ACCENT, alignment=TA_LEFT, spaceAfter=0, leading=14)),
         ]],
         colWidths=[8*cm, 9*cm],
     )
@@ -452,9 +454,9 @@ def _build_analysis_section(story: list, report: dict, styles: dict) -> None:
     notes = analysis.get("notes", [])
 
     color_map = {
-        "good": _SUCCESS, "medium": colors.HexColor("#ffaa00"),
-        "poor": _ACCENT2, "improved": _SUCCESS, "neutral": _MUTED,
-        "degraded": _ACCENT2, "excellent": _SUCCESS,
+        "good": _SUCCESS, "medium": _WARN,
+        "poor": _ERROR, "improved": _SUCCESS, "neutral": _MUTED,
+        "degraded": _ERROR, "excellent": _SUCCESS,
     }
 
     rows = [
