@@ -15,6 +15,13 @@ MASKS_DIR = DATA_DIR / "masks"
 JPEG_SOI = b"\xFF\xD8"
 JPEG_EOI = b"\xFF\xD9"
 
+# BMP : pas de marqueur de fin — la taille est déclarée dans le header.
+# La validation du header (voir signature.parse_bmp_header) sert de filtre
+# anti-faux-positifs car la signature "BM" sur 2 octets est trop courte.
+BMP_SIGNATURE = b"\x42\x4D"  # "BM"
+VALID_DIB_SIZES = {12, 40, 52, 56, 64, 108, 124}
+VALID_BMP_BPP = {1, 4, 8, 16, 24, 32}
+
 DEFAULT_ENCODING = "utf-8"
 DEFAULT_MIN_JPEG_SIZE = 128
 DEFAULT_READ_CHUNK_SIZE = 1024 * 1024

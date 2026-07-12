@@ -17,9 +17,13 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.modules.carving.extractor import extract_jpegs_from_dump, extract_pngs_from_dump
+from app.modules.carving.extractor import (
+    extract_bmps_from_dump,
+    extract_jpegs_from_dump,
+    extract_pngs_from_dump,
+)
 from app.modules.carving.fragment_assembler import build_fragment_report, greedy_chain
-from app.modules.carving.jpeg_scanner import scan_jpeg_offsets, scan_png_offsets
+from app.modules.carving.jpeg_scanner import scan_bmp_offsets, scan_jpeg_offsets, scan_png_offsets
 from app.modules.validation.verifier import verify_image
 
 
@@ -29,7 +33,7 @@ def _parse_formats(raw: str) -> list[str]:
 
 
 def _allowed_image_formats(formats: list[str]) -> list[str]:
-    aliases = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG"}
+    aliases = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG", "bmp": "BMP"}
     return [aliases.get(fmt, fmt.upper()) for fmt in formats]
 
 
@@ -135,6 +139,10 @@ def reconstruct(input_path: Path, out_dir: Path, formats: list[str]) -> dict[str
             png_offsets = scan_png_offsets(input_path)
             offsets.extend(png_offsets)
             extracted.extend(extract_pngs_from_dump(input_path))
+        if "bmp" in formats:
+            bmp_offsets = scan_bmp_offsets(input_path)
+            offsets.extend(bmp_offsets)
+            extracted.extend(extract_bmps_from_dump(input_path))
         offsets.sort()
         extracted.sort(key=lambda item: int(item.get("start_offset", 0)))
         fragments = _fragments_from_extracted(extracted)

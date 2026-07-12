@@ -16,7 +16,7 @@
 **Forensic Image Recovery** est un pipeline complet de reconstruction forensique d'images numériques corrompues. Le système simule des dégradations réalistes (perte de secteur, rayures, barres, bruit, blocs supprimés), puis applique automatiquement jusqu'à 14 stratégies de reconstruction pour sélectionner la meilleure par scoring PSNR/SSIM.
 
 Le projet couvre l'intégralité du cycle forensique :
-- **Carving JPEG** depuis dumps binaires bruts (détection SOI/EOI, assemblage de fragments)
+- **Carving JPEG + PNG + BMP** depuis dumps binaires bruts (signatures SOI/EOI, PNG, header BMP ; assemblage de fragments)
 - **Corruption simulée** (15 types : rayures, barres, bruit, zones supprimées, blocs JPEG…)
 - **Reconstruction multi-stratégies** avec moteur adaptatif (14 algorithmes, sélection par score)
 - **Scoring supervisé et aveugle** avec décomposition détaillée PSNR/SSIM
@@ -101,7 +101,7 @@ forensic-image-recovery/
 │       ├── reconstruction/      # Pipeline adaptatif + PatchMatch
 │       ├── evaluation/          # Scoring PSNR/SSIM supervisé/aveugle
 │       ├── reporting/           # JSON + PDF + HTML + légal
-│       ├── carving/             # Extraction JPEG depuis dumps
+│       ├── carving/             # Extraction JPEG / PNG / BMP depuis dumps
 │       ├── analysis/            # Analyses persistantes
 │       ├── benchmark/           # Benchmark automatique
 │       ├── metadata/            # Analyse EXIF (K12)
@@ -302,7 +302,7 @@ Sortie attendue :
   ✓ Recall parfait : 3/3 images récupérées
 ```
 
-**Limites documentées du carving** : reconstruction basée sur signatures SOI (`\xff\xd8`) / EOI (`\xff\xd9`) uniquement. Ne reconstruit pas de fragments arbitrairement découpés — assemblage heuristique par overlap scoring. Perspective d'amélioration : support PNG/BMP, streaming sur très grands dumps.
+**Limites documentées du carving** : trois formats supportés — JPEG (signatures SOI `\xff\xd8` / EOI `\xff\xd9`), PNG (signature + footer `IEND`) et BMP (taille lue dans le header, sans footer). Ne reconstruit pas de fragments arbitrairement découpés — assemblage heuristique par overlap scoring. Perspective d'amélioration : streaming sur très grands dumps, formats additionnels (GIF, TIFF).
 
 ```bash
 # Générer un dataset fragmenté avec perte et bruit (scénario avancé)
@@ -330,7 +330,7 @@ Matrice de traçabilité entre les exigences du rapport ESGI validé et l'implé
 | Scoring aveugle (heuristique) | ✅ Implémenté | `app/modules/evaluation/metrics.py` (`compute_blind_score()`) |
 | Rapports PDF/HTML/JSON | ✅ Implémenté | `app/modules/reporting/` |
 | Chain of custody SHA-256 | ✅ Implémenté | `app/modules/reporting/legal_report.py` |
-| Carving JPEG depuis dumps | ✅ Implémenté (POC) | `app/modules/carving/extractor.py` |
+| Carving JPEG / PNG / BMP depuis dumps | ✅ Implémenté (POC) | `app/modules/carving/extractor.py` |
 | Assemblage de fragments | ✅ Implémenté (POC) | `app/modules/carving/fragment_assembler.py` |
 | Analyses persistantes async | ✅ Implémenté | `app/modules/analysis/`, `/analysis/*` |
 | Sécurité magic bytes H1 | ✅ Implémenté | `app/core/upload_validator.py` |
