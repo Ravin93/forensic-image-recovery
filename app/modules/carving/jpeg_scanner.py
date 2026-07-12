@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.core.exceptions import CarvingError
 from app.core.logger import logger
-from app.modules.carving.signature import find_all_jpeg_starts
+from app.modules.carving.signature import find_all_bmp_headers, find_all_jpeg_starts
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -57,4 +57,27 @@ def scan_png_offsets(file_path: str | Path) -> list[int]:
 
     offsets = scan_png_offsets_from_bytes(content)
     logger.info("Scanner fichier : %s offsets PNG trouvés dans %s", len(offsets), path)
+    return offsets
+
+
+def scan_bmp_offsets_from_bytes(content: bytes) -> list[int]:
+    offsets = [h["start_offset"] for h in find_all_bmp_headers(content)]
+    logger.info("Scanner buffer : %s offsets BMP trouvés", len(offsets))
+    return offsets
+
+
+def scan_bmp_offsets(file_path: str | Path) -> list[int]:
+    path = Path(file_path)
+
+    if not path.exists():
+        raise CarvingError(f"Fichier introuvable : {path}")
+
+    try:
+        with path.open("rb") as f:
+            content = f.read()
+    except OSError as exc:
+        raise CarvingError(f"Impossible de lire le dump : {path}") from exc
+
+    offsets = scan_bmp_offsets_from_bytes(content)
+    logger.info("Scanner fichier : %s offsets BMP trouvés dans %s", len(offsets), path)
     return offsets
